@@ -1,20 +1,20 @@
-const CACHE_VERSION = "opti-ams-v2";
+const CACHE_VERSION = "opti-ams-v3";
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 const PDF_CACHE = `${CACHE_VERSION}-pdfs`;
 
 const STATIC_ASSETS = [
-  "./index.html",
-  "./manifest.json",
-  "./firebase.config.js",
-  "./css/styles.css",
-  "./js/ui.js",
-  "./js/calculos.js",
-  "./js/db.js",
-  "./js/auth.js",
-  "./js/firebase.js",
-  "./assets/logo-placeholder.svg",
-  "./assets/sample-diagrama.pdf"
+  "/index.html",
+  "/manifest.json",
+  "/firebase.config.js",
+  "/css/styles.css",
+  "/js/ui.js",
+  "/js/calculos.js",
+  "/js/db.js",
+  "/js/auth.js",
+  "/js/firebase.js",
+  "/assets/logo-placeholder.svg",
+  "/assets/sample-diagrama.pdf"
 ];
 
 self.addEventListener("install", (event) => {
@@ -45,7 +45,7 @@ self.addEventListener("fetch", (event) => {
 
   if (request.mode === "navigate") {
     event.respondWith(
-      fetch(request).catch(() => caches.match("./index.html"))
+      fetch(request).catch(() => caches.match("/index.html"))
     );
     return;
   }

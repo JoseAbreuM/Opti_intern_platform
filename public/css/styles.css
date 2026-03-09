@@ -1,16 +1,17 @@
 :root {
-  --bg-0: #08111a;
-  --bg-1: #0f1e2b;
-  --bg-2: #13293d;
-  --card: #1a334b;
-  --line: #2d4f6f;
-  --text: #eaf4ff;
-  --muted: #9bb3c8;
+  --bg-0: #0d0d0d;
+  --bg-1: #121212;
+  --bg-2: #1a1a1a;
+  --card: #121212;
+  --line: #272727;
+  --text: #ffffff;
+  --muted: #cbcbcb;
   --ok: #1bbf83;
   --warn: #f3b941;
   --danger: #f05656;
-  --accent: #1f8eff;
-  --radius: 14px;
+  --accent: #030a8c;
+  --accent-2: #3041ff;
+  --radius: 12px;
 }
 
 * {
@@ -21,9 +22,9 @@ html,
 body {
   margin: 0;
   padding: 0;
-  background: radial-gradient(circle at 20% 10%, #17324a 0%, var(--bg-0) 38%, #050b12 100%);
+  background: linear-gradient(180deg, #0b0b0b 0%, #101010 45%, #0d0d0d 100%);
   color: var(--text);
-  font-family: "Segoe UI", Tahoma, sans-serif;
+  font-family: "Trebuchet MS", "Segoe UI", Tahoma, sans-serif;
   min-height: 100%;
 }
 
@@ -41,8 +42,9 @@ p {
 }
 
 .sidebar {
-  background: linear-gradient(180deg, var(--bg-1), #0b1824);
+  background: linear-gradient(180deg, #101010, #151515);
   border-right: 1px solid var(--line);
+  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.03);
   padding: 16px;
   transition: width 0.25s ease, transform 0.25s ease;
 }
@@ -65,8 +67,11 @@ p {
 }
 
 .brand-logo {
-  width: 44px;
-  height: 44px;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  object-fit: cover;
 }
 
 .brand-row h1 {
@@ -90,8 +95,8 @@ p {
 }
 
 .nav-item {
-  border: 1px solid transparent;
-  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid #1f1f1f;
+  background: #161616;
   color: var(--text);
   padding: 10px 12px;
   border-radius: 10px;
@@ -99,15 +104,47 @@ p {
   align-items: center;
   gap: 10px;
   cursor: pointer;
+  transition: 0.2s ease;
 }
 
 .nav-item.is-active {
-  border-color: var(--accent);
-  background: rgba(31, 142, 255, 0.18);
+  border-color: var(--accent-2);
+  background: linear-gradient(180deg, rgba(48, 65, 255, 0.34), rgba(3, 10, 140, 0.34));
+  box-shadow: 0 0 0 1px rgba(48, 65, 255, 0.2);
+}
+
+.nav-item:hover {
+  border-color: #323232;
 }
 
 .main-content {
   padding: 14px 18px 90px;
+  position: relative;
+  overflow: hidden;
+}
+
+.main-content::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: min(560px, 64vw);
+  height: 220px;
+  background:
+    linear-gradient(180deg, rgba(13, 13, 13, 0.3), rgba(13, 13, 13, 0.88)),
+    url("/assets/header.png");
+  background-size: cover;
+  background-position: center;
+  border-bottom-left-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.topbar,
+.view {
+  position: relative;
+  z-index: 1;
 }
 
 .topbar {
@@ -124,7 +161,7 @@ p {
 
 .icon-btn {
   border: 1px solid var(--line);
-  background: var(--bg-2);
+  background: #151515;
   border-radius: 10px;
   color: var(--text);
   padding: 8px;
@@ -135,17 +172,18 @@ p {
   border-radius: 999px;
   padding: 6px 10px;
   font-size: 0.75rem;
-  border: 1px solid var(--line);
+  border: 1px solid #2b2b2b;
+  background: #151515;
 }
 
 .badge.offline {
-  background: rgba(240, 86, 86, 0.2);
+  background: rgba(240, 86, 86, 0.16);
   color: #ffb3b3;
 }
 
 .badge.online,
 .badge.ok {
-  background: rgba(27, 191, 131, 0.2);
+  background: rgba(27, 191, 131, 0.16);
   color: #a3f1d5;
 }
 
@@ -159,15 +197,53 @@ p {
 
 .kpi-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
 }
 
+.chart-grid {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: 1.5fr 1fr;
+  gap: 12px;
+}
+
+.category-legend {
+  margin-top: 10px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.table-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.table-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.filters-grid {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
 .card {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.02));
-  border: 1px solid var(--line);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.015), rgba(255, 255, 255, 0.01));
+  border: 1px solid #242424;
   border-radius: var(--radius);
   padding: 14px;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.2);
 }
 
 .kpi h3 {
@@ -195,10 +271,11 @@ label {
   color: var(--muted);
 }
 
-input {
+input,
+select {
   border: 1px solid var(--line);
   border-radius: 10px;
-  background: #0c1a27;
+  background: #141414;
   color: var(--text);
   padding: 10px;
 }
@@ -220,13 +297,15 @@ input {
 }
 
 .btn-primary {
-  background: var(--accent);
+  background: linear-gradient(180deg, #1d30ff, #030a8c);
   color: #fff;
+  box-shadow: 0 6px 14px rgba(3, 10, 140, 0.34);
 }
 
 .btn-secondary {
   margin-top: 10px;
-  background: rgba(255, 255, 255, 0.08);
+  background: #181818;
+  border-color: #2c2c2c;
   color: var(--text);
 }
 
@@ -270,8 +349,13 @@ th,
 td {
   text-align: left;
   padding: 8px;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid #242424;
   font-size: 0.85rem;
+}
+
+thead th {
+  color: #f7f7f7;
+  background: rgba(3, 10, 140, 0.14);
 }
 
 .trend-up {
@@ -282,13 +366,33 @@ td {
   color: var(--danger);
 }
 
+.sub-table-title {
+  margin-top: 14px;
+}
+
+.hint {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.comparison-card p {
+  margin: 8px 0 0;
+  color: var(--muted);
+}
+
+.comparison-card strong {
+  color: var(--text);
+}
+
 .bottom-nav {
   position: fixed;
   left: 0;
   right: 0;
   bottom: 0;
   padding: 8px 12px 12px;
-  background: rgba(7, 15, 22, 0.92);
+  background: rgba(13, 13, 13, 0.95);
   border-top: 1px solid var(--line);
   justify-content: space-around;
   backdrop-filter: blur(6px);
@@ -303,6 +407,11 @@ td {
 @media (max-width: 1024px) {
   .kpi-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .chart-grid,
+  .filters-grid {
+    grid-template-columns: 1fr;
   }
 
   .ficha-grid {
@@ -321,6 +430,12 @@ td {
 
   .main-content {
     padding-bottom: 84px;
+  }
+
+  .main-content::before {
+    width: 100%;
+    height: 170px;
+    opacity: 0.35;
   }
 
   .kpi-grid,

@@ -3,6 +3,7 @@
     "site": "opti-intern-wsc-page",
     "public": "public",
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+    "redirects": [{ "source": "/public/**", "destination": "/", "type": 301 }],
     "rewrites": [{ "source": "**", "destination": "/index.html" }]
   }
 }
