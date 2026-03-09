@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="Logo Opti AMS">
+  <rect width="120" height="120" rx="20" fill="#12324a"/>
+  <path d="M20 80 L44 40 L60 66 L78 34 L100 80" stroke="#1f8eff" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="93" cy="28" r="8" fill="#1bbf83"/>
+</svg>

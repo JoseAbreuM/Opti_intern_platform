@@ -1,0 +1,17 @@
+{
+  "name": "Opti Intern Platform",
+  "short_name": "OptiAMS",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#08111a",
+  "theme_color": "#0b1724",
+  "description": "Plataforma de Gestion de Activos y Optimizacion de Produccion para pozos petroleros.",
+  "icons": [
+    {
+      "src": "./assets/logo-placeholder.svg",
+      "sizes": "120x120",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

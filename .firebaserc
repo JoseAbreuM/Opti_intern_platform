@@ -1,0 +1,12 @@
+{
+  "projects": {
+    "default": "mapa-trillas-bare"
+  },
+  "targets": {
+    "mapa-trillas-bare": {
+      "hosting": {
+        "optiams": ["opti-intern-wsc-page"]
+      }
+    }
+  }
+}
