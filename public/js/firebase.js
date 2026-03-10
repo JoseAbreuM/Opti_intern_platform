@@ -28,6 +28,8 @@ function createStorage() {
 
 const db = createDb();
 const storage = createStorage();
+const MASTER_COLLECTION = "pozos";
+const MASTER_DOC_ID = "data";
 
 export function isFirebaseReady() {
   return Boolean(db);
@@ -45,7 +47,7 @@ export async function syncRecordToFirebase(record) {
 
   const payload = record.payload || {};
   const pozoId = normalizePozoId(payload.pozoId);
-  const pozoRef = db.collection("pozos").doc(pozoId);
+  const pozoRef = db.collection(MASTER_COLLECTION).doc(pozoId);
   const serverTs = window.firebase.firestore.FieldValue.serverTimestamp();
 
   if (record.formType === "parametros") {
@@ -76,6 +78,15 @@ export async function syncRecordToFirebase(record) {
       { merge: true }
     );
 
+    await safeUpsertMasterPozo(pozoId, {
+      id: pozoId,
+      estado: firstNonEmpty(payload.estado, "activo"),
+      potencial: String(firstNonEmpty(payload.potencial, "0")),
+      ultima_frecuencia_hz: body.frecuencia,
+      ultimo_torque_nm: body.torque,
+      potencia_instalada_hp: body.hp_calculado
+    });
+
     return;
   }
 
@@ -99,6 +110,14 @@ export async function syncRecordToFirebase(record) {
       },
       { merge: true }
     );
+
+    await safeUpsertMasterPozo(pozoId, {
+      id: pozoId,
+      ultimo_nivel_ft: body.ft,
+      ultimo_pip: body.pip,
+      ultimo_pbhp: body.pbhp,
+      reporte_pdf_url: body.reporte_pdf_url || ""
+    });
   }
 }
 
@@ -107,19 +126,117 @@ export async function fetchPozos(maxRows = 250) {
     return [];
   }
 
-  const snapshot = await db.collection("pozos").limit(maxRows).get();
+  // Esquema actual de mapa-trillas-bare: un documento `pozos/data` con array `pozos[]`.
+  try {
+    const aggregateDoc = await db.collection(MASTER_COLLECTION).doc(MASTER_DOC_ID).get();
+    if (aggregateDoc.exists) {
+      const aggregate = aggregateDoc.data() || {};
+      const rows = Array.isArray(aggregate.pozos) ? aggregate.pozos : [];
+      if (rows.length) {
+        return rows.slice(0, maxRows).map((row, idx) => {
+          const estado = firstNonEmpty(row.estado, row.status, "En observacion");
+          const id = String(firstNonEmpty(row.id, row.pozoId, row.pozo_id, `POZO-${idx + 1}`));
+          const classif = classifyEstado(estado);
+          return {
+            id,
+            nombre: firstNonEmpty(row.nombre, row.name, row.pozo, id),
+            area: firstNonEmpty(row.area, row.zona, row.zone, "N/A"),
+            zona: firstNonEmpty(row.zona, row.area, row.zone, "N/A"),
+            estado,
+            potencial: toNumber(firstNonEmpty(row.potencial, row.potential, 0)),
+            categoria: toCategory(firstNonEmpty(row.categoria, row.category), estado),
+            esDiferido: classif.esDiferido,
+            cabezal: firstNonEmpty(row.cabezal, row.cabezal_tipo, row.head, ""),
+            variador: firstNonEmpty(row.variador, row.variador_modelo, row.vfd, ""),
+            bomba_marca: firstNonEmpty(row.bomba_marca, row.marca_bomba, row.pump_brand, ""),
+            bomba_caudal: firstNonEmpty(row.bomba_caudal, row.caudal_bomba, row.pump_flow, ""),
+            bomba_tvu: firstNonEmpty(row.bomba_tvu, row.tvu, ""),
+            diagrama_mecanico: firstNonEmpty(row.diagrama_mecanico, row.mechanical_diagram, ""),
+            num_tuberias: firstNonEmpty(row.num_tuberias, row.numero_tuberias, ""),
+            diametro_tuberias: firstNonEmpty(row.diametro_tuberias, row.diam_tuberias, ""),
+            num_cabillas: firstNonEmpty(row.num_cabillas, row.numero_cabillas, ""),
+            diametro_cabillas: firstNonEmpty(row.diametro_cabillas, row.diam_cabillas, ""),
+            longitud_cabillas: firstNonEmpty(row.longitud_cabillas, row.long_cabillas, "")
+          };
+        });
+      }
+    }
+  } catch (error) {
+    // Continuar con búsqueda de esquemas alternativos.
+  }
 
-  return snapshot.docs.map((doc) => {
-    const data = doc.data() || {};
-    const estado = data.estado || "En observacion";
-    return {
-      id: doc.id,
-      nombre: data.nombre || doc.id,
-      area: data.area || data.zona || "N/A",
-      estado,
-      potencial: data.potencial || 0,
-      categoria: toCategory(data.categoria, estado)
-    };
+  const candidates = ["pozos", "Pozos", "POZOS", "wells", "Wells"];
+  for (const collectionName of candidates) {
+    try {
+      const snapshot = await db.collection(collectionName).limit(maxRows).get();
+      if (snapshot.empty) {
+        continue;
+      }
+
+      return snapshot.docs.map((doc) => {
+        const data = doc.data() || {};
+        const estado = firstNonEmpty(data.estado, data.status, "En observacion");
+        const classif = classifyEstado(estado);
+        return {
+          id: firstNonEmpty(doc.id, data.id, data.pozoId, data.pozo_id, "POZO-000"),
+          nombre: firstNonEmpty(data.nombre, data.name, data.pozo, doc.id),
+          area: firstNonEmpty(data.area, data.zona, data.zone, "N/A"),
+          zona: firstNonEmpty(data.zona, data.area, data.zone, "N/A"),
+          estado,
+          potencial: toNumber(firstNonEmpty(data.potencial, data.potential, 0)),
+          categoria: toCategory(firstNonEmpty(data.categoria, data.category), estado),
+          esDiferido: classif.esDiferido,
+          cabezal: firstNonEmpty(data.cabezal, data.cabezal_tipo, data.head, ""),
+          variador: firstNonEmpty(data.variador, data.variador_modelo, data.vfd, ""),
+          bomba_marca: firstNonEmpty(data.bomba_marca, data.marca_bomba, data.pump_brand, ""),
+          bomba_caudal: firstNonEmpty(data.bomba_caudal, data.caudal_bomba, data.pump_flow, ""),
+          bomba_tvu: firstNonEmpty(data.bomba_tvu, data.tvu, ""),
+          diagrama_mecanico: firstNonEmpty(data.diagrama_mecanico, data.mechanical_diagram, ""),
+          num_tuberias: firstNonEmpty(data.num_tuberias, data.numero_tuberias, ""),
+          diametro_tuberias: firstNonEmpty(data.diametro_tuberias, data.diam_tuberias, ""),
+          num_cabillas: firstNonEmpty(data.num_cabillas, data.numero_cabillas, ""),
+          diametro_cabillas: firstNonEmpty(data.diametro_cabillas, data.diam_cabillas, ""),
+          longitud_cabillas: firstNonEmpty(data.longitud_cabillas, data.long_cabillas, "")
+        };
+      });
+    } catch (error) {
+      // Probar siguiente colección candidata.
+    }
+  }
+
+  return [];
+}
+
+export async function updatePozoBaseData(pozoId, payload) {
+  if (!db) {
+    throw new Error("Firebase no configurado");
+  }
+
+  const id = normalizePozoId(pozoId);
+  const serverTs = window.firebase.firestore.FieldValue.serverTimestamp();
+
+  await db.collection(MASTER_COLLECTION).doc(id).set(
+    {
+      id,
+      nombre: String(payload.nombre || id).trim(),
+      categoria: Number(payload.categoria || 2),
+      estado: String(payload.estado || "En observacion").trim(),
+      area: String(payload.area || "N/A").trim(),
+      potencial: toNumber(payload.potencial),
+      updatedAt: serverTs,
+      fuente_ultima_actualizacion: "opti-intern-platform"
+    },
+    { merge: true }
+  );
+
+  await safeUpsertMasterPozo(id, {
+    id,
+    nombre: String(payload.nombre || id).trim(),
+    categoria: Number(payload.categoria || 2),
+    estado: String(payload.estado || "En observacion").trim(),
+    zona: String(payload.area || "N/A").trim(),
+    area: String(payload.area || "N/A").trim(),
+    potencial: String(toNumber(payload.potencial))
   });
 }
 
@@ -129,7 +246,7 @@ export async function fetchLatestParametros(pozoId, maxRows = 12) {
   }
 
   const snapshot = await db
-    .collection("pozos")
+    .collection(MASTER_COLLECTION)
     .doc(normalizePozoId(pozoId))
     .collection("parametros")
     .orderBy("createdAt", "desc")
@@ -153,7 +270,7 @@ export async function fetchLatestTomasNivel(pozoId, maxRows = 12) {
   }
 
   const snapshot = await db
-    .collection("pozos")
+    .collection(MASTER_COLLECTION)
     .doc(normalizePozoId(pozoId))
     .collection("tomas_nivel")
     .orderBy("createdAt", "desc")
@@ -185,19 +302,100 @@ export async function uploadTomaNivelPdf(file, pozoId) {
 }
 
 function toCategory(rawCategory, estado) {
-  const parsed = Number(rawCategory);
-  if ([1, 2, 3].includes(parsed)) {
-    return parsed;
+  const classif = classifyEstado(estado);
+  if (classif.categoria !== null) {
+    return classif.categoria;
   }
 
-  const status = String(estado || "").toLowerCase();
-  if (status.includes("activo") || status.includes("operativo")) {
-    return 1;
-  }
-  if (status.includes("menor") || status.includes("observ")) {
+  const parsed = Number(rawCategory);
+  // Validación: categoria 1 solo para estados activos/diagnostico.
+  if (parsed === 1) {
     return 2;
   }
-  return 3;
+  if ([2, 3].includes(parsed)) {
+    return parsed;
+  }
+  return 2;
+}
+
+function classifyEstado(estado) {
+  const status = normalizeText(estado);
+
+  if (status.includes("diferido")) {
+    return { categoria: 3, esDiferido: true };
+  }
+  if (status.includes("candidato")) {
+    return { categoria: 3, esDiferido: false };
+  }
+  if (status.includes("en servicio") || status.includes("inactivo por servicio")) {
+    return { categoria: 2, esDiferido: false };
+  }
+  if (status.includes("diagnostico")) {
+    return { categoria: 1, esDiferido: false };
+  }
+  if (status.includes("activo") || status.includes("operativo")) {
+    return { categoria: 1, esDiferido: false };
+  }
+  if (status.includes("inactivo")) {
+    return { categoria: 2, esDiferido: false };
+  }
+
+  return { categoria: null, esDiferido: false };
+}
+
+function normalizeText(value) {
+  return String(value || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
+}
+
+async function safeUpsertMasterPozo(pozoId, patch) {
+  try {
+    await upsertMasterPozo(pozoId, patch);
+  } catch (error) {
+    // No bloquear flujo principal si reglas impiden editar array maestro.
+  }
+}
+
+async function upsertMasterPozo(pozoId, patch) {
+  const masterRef = db.collection(MASTER_COLLECTION).doc(MASTER_DOC_ID);
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(masterRef);
+    const data = snap.exists ? snap.data() || {} : {};
+    const current = Array.isArray(data.pozos) ? data.pozos : [];
+    const id = String(pozoId);
+    const idx = current.findIndex((row) => String(row?.id) === id);
+    const cleanPatch = sanitizePatch({ ...patch, id });
+
+    if (idx >= 0) {
+      current[idx] = { ...current[idx], ...cleanPatch };
+    } else {
+      current.push(cleanPatch);
+    }
+
+    tx.set(masterRef, { pozos: current }, { merge: true });
+  });
+}
+
+function sanitizePatch(patch) {
+  const output = {};
+  Object.entries(patch || {}).forEach(([key, value]) => {
+    if (value !== undefined && value !== null) {
+      output[key] = value;
+    }
+  });
+  return output;
+}
+
+function firstNonEmpty(...values) {
+  for (const value of values) {
+    if (value !== undefined && value !== null && String(value).trim() !== "") {
+      return value;
+    }
+  }
+  return "";
 }
 
 function toNumber(value) {

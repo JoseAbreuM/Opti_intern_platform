@@ -7,6 +7,9 @@
     <title>Opti Intern Platform - AMS</title>
     <link rel="manifest" href="/manifest.json" />
     <link rel="stylesheet" href="/css/styles.css" />
+    <link rel="stylesheet" href="/vendor/jquery.dataTables.min.css" />
+    <link rel="stylesheet" href="/vendor/buttons.dataTables.min.css" />
+    <link rel="stylesheet" href="/vendor/responsive.dataTables.min.css" />
   </head>
   <body>
     <div class="app-shell">
@@ -23,17 +26,18 @@
           <button class="nav-item is-active" data-view="dashboard">
             <i data-lucide="layout-dashboard"></i><span>Dashboard</span>
           </button>
+          <button class="nav-item" data-view="pozos">
+            <i data-lucide="table-properties"></i><span>Pozos</span>
+          </button>
           <button class="nav-item" data-view="carga">
             <i data-lucide="sliders-horizontal"></i><span>Carga Param.</span>
           </button>
           <button class="nav-item" data-view="nivel">
             <i data-lucide="ruler"></i><span>Toma de Nivel</span>
           </button>
-          <button class="nav-item" data-view="ficha">
-            <i data-lucide="file-text"></i><span>Ficha Técnica</span>
-          </button>
         </nav>
       </aside>
+      <div id="sidebarBackdrop" class="sidebar-backdrop" aria-hidden="true"></div>
 
       <main class="main-content">
         <header class="topbar">
@@ -41,6 +45,7 @@
             <i data-lucide="panel-left"></i>
           </button>
           <div class="status-wrap">
+            <button id="installAppBtn" class="btn-secondary install-btn" type="button" hidden>Instalar App</button>
             <span id="connectionBadge" class="badge offline">Offline</span>
             <span id="syncBadge" class="badge">Sincronización pendiente</span>
           </div>
@@ -78,27 +83,22 @@
             </article>
           </div>
 
+          <article class="card compact-panel">
+            <h3>Resumen Operativo</h3>
+            <p>Visualiza tendencias globales y distribucion por categoria. Para analisis detallado y gestion masiva usa la vista <strong>Pozos</strong>.</p>
+          </article>
+        </section>
+
+        <section id="view-pozos" class="view">
           <article class="card">
             <div class="table-head">
               <h2>Tabla Inteligente de Pozos</h2>
               <div class="table-actions">
-                <button id="exportWellsExcel" class="btn-secondary">Excel</button>
-                <button id="exportWellsPdf" class="btn-secondary">PDF</button>
-                <button id="exportWellsWord" class="btn-secondary">Word</button>
-                <button id="printWells" class="btn-secondary">Imprimir</button>
+                <label class="btn-secondary file-like">
+                  Importar Historico Excel
+                  <input id="historicoFileInput" type="file" accept=".xlsx,.xls" hidden />
+                </label>
               </div>
-            </div>
-
-            <div class="filters-grid">
-              <input id="filterNombre" type="text" placeholder="Filtrar por nombre" />
-              <select id="filterCategoria">
-                <option value="">Categoria</option>
-                <option value="1">Categoria 1</option>
-                <option value="2">Categoria 2</option>
-                <option value="3">Categoria 3</option>
-              </select>
-              <input id="filterEstado" type="text" placeholder="Filtrar por estado" />
-              <input id="filterArea" type="text" placeholder="Filtrar por area" />
             </div>
 
             <div class="table-wrap">
@@ -110,12 +110,14 @@
                     <th>Estado</th>
                     <th>Area</th>
                     <th>Potencial</th>
-                    <th>Accion</th>
+                    <th class="no-export no-toggle">Acciones</th>
                   </tr>
                 </thead>
                 <tbody id="wellsTableBody"></tbody>
               </table>
             </div>
+
+            <p class="hint">La tabla usa busqueda global inteligente, paginacion, exportacion (Excel/Word/PDF/Impresion) y selector de columnas.</p>
           </article>
         </section>
 
@@ -165,6 +167,46 @@
               <span id="estadoPozo" class="badge ok">Operativo</span>
             </div>
 
+            <div class="table-actions ficha-actions">
+              <button id="openMapLocationBtn" class="btn-secondary" type="button">Ver ubicacion</button>
+              <button id="exportFichaPdfBtn" class="btn-primary" type="button">Exportar PDF Ficha Tecnica</button>
+            </div>
+
+            <div class="ficha-tech-grid">
+              <article class="card">
+                <h3>Ficha General del Pozo</h3>
+                <dl class="kv-list" id="pozoGeneralData">
+                  <div><dt>ID</dt><dd id="fgPozoId">N/A</dd></div>
+                  <div><dt>Zona</dt><dd id="fgZona">N/A</dd></div>
+                  <div><dt>Estado</dt><dd id="fgEstado">N/A</dd></div>
+                  <div><dt>Cabezal</dt><dd id="fgCabezal">N/A</dd></div>
+                  <div><dt>Variador</dt><dd id="fgVariador">N/A</dd></div>
+                  <div><dt>Potencial</dt><dd id="fgPotencial">0.00</dd></div>
+                </dl>
+              </article>
+
+              <article class="card">
+                <h3>Datos de Bomba</h3>
+                <dl class="kv-list" id="pozoBombaData">
+                  <div><dt>Marca</dt><dd id="fbMarca">N/A</dd></div>
+                  <div><dt>Caudal</dt><dd id="fbCaudal">N/A</dd></div>
+                  <div><dt>TVU</dt><dd id="fbTvu">N/A</dd></div>
+                </dl>
+              </article>
+
+              <article class="card">
+                <h3>Datos de Completacion</h3>
+                <dl class="kv-list" id="pozoCompletacionData">
+                  <div><dt>Diagrama Mecanico</dt><dd id="fcDiagrama">N/A</dd></div>
+                  <div><dt>Numero de Tuberias</dt><dd id="fcNumTuberias">N/A</dd></div>
+                  <div><dt>Diametro Tuberias</dt><dd id="fcDiamTuberias">N/A</dd></div>
+                  <div><dt>Numero de Cabillas</dt><dd id="fcNumCabillas">N/A</dd></div>
+                  <div><dt>Diametro Cabillas</dt><dd id="fcDiamCabillas">N/A</dd></div>
+                  <div><dt>Longitud Cabillas</dt><dd id="fcLongCabillas">N/A</dd></div>
+                </dl>
+              </article>
+            </div>
+
             <div class="chart-grid">
               <article class="card">
                 <h3>Tendencia por Pozo: Parametros vs Nivel</h3>
@@ -207,7 +249,10 @@
                     <tbody id="parametrosTableBody"></tbody>
                   </table>
                 </div>
-                <button id="exportExcelBtn" class="btn-secondary">Exportar a Excel</button>
+                <div class="table-actions">
+                  <button id="exportExcelBtn" class="btn-secondary" type="button">Exportar Ultimos a Excel</button>
+                  <button id="openParametrosHistoryBtn" class="btn-secondary" type="button">Ver Historial Completo</button>
+                </div>
 
                 <h3 class="sub-table-title">Últimas Tomas de Nivel</h3>
                 <div class="table-wrap">
@@ -225,6 +270,12 @@
                     <tbody id="nivelesTableBody"></tbody>
                   </table>
                 </div>
+                <div class="table-actions">
+                  <button id="openNivelesHistoryBtn" class="btn-secondary" type="button">Ver Historial Completo</button>
+                </div>
+
+                <h3 class="sub-table-title">Ultimo PDF de Toma de Nivel</h3>
+                <p id="latestNivelPdfWrap" class="hint">Sin PDF disponible.</p>
               </div>
             </div>
           </article>
@@ -233,21 +284,117 @@
 
       <nav class="bottom-nav" id="bottomNav">
         <button class="nav-item is-active" data-view="dashboard"><i data-lucide="layout-dashboard"></i></button>
+        <button class="nav-item" data-view="pozos"><i data-lucide="table-properties"></i></button>
         <button class="nav-item" data-view="carga"><i data-lucide="sliders-horizontal"></i></button>
         <button class="nav-item" data-view="nivel"><i data-lucide="ruler"></i></button>
-        <button class="nav-item" data-view="ficha"><i data-lucide="file-text"></i></button>
       </nav>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/localforage@1.10.0/dist/localforage.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/lucide@0.468.0/dist/umd/lucide.min.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-storage-compat.js"></script>
+    <dialog id="wellEditDialog" class="edit-dialog">
+      <form id="wellEditForm" method="dialog" class="form-grid">
+        <h3>Editar Pozo</h3>
+        <input type="hidden" name="id" />
+        <label>Nombre<input type="text" name="nombre" required /></label>
+        <label>Categoria
+          <select name="categoria" required>
+            <option value="1">Cat-1</option>
+            <option value="2">Cat-2</option>
+            <option value="3">Cat-3</option>
+          </select>
+        </label>
+        <label>Estado
+          <select name="estado" required>
+            <option value="activo">activo</option>
+            <option value="inactivo por servicio">inactivo por servicio</option>
+            <option value="en servicio">en servicio</option>
+            <option value="diagnostico">diagnostico</option>
+            <option value="candidato">candidato</option>
+            <option value="diferido">diferido</option>
+          </select>
+        </label>
+        <label>Area
+          <select name="area" required>
+            <option value="bare-tradicional">bare-tradicional</option>
+            <option value="bare-norte">bare-norte</option>
+            <option value="bare-sur">bare-sur</option>
+            <option value="N/A">N/A</option>
+          </select>
+        </label>
+        <label>Potencial<input type="number" step="0.01" name="potencial" /></label>
+        <div class="table-actions">
+          <button type="button" id="cancelWellEdit" class="btn-secondary">Cancelar</button>
+          <button type="submit" class="btn-primary">Guardar Cambios</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="parametrosHistoryDialog" class="edit-dialog">
+      <form method="dialog" class="history-dialog-form">
+        <div class="table-head">
+          <h3>Historico Completo de Parametros</h3>
+          <button id="closeParametrosHistoryBtn" type="submit" class="btn-secondary">Cerrar</button>
+        </div>
+        <div class="table-wrap">
+          <table id="parametrosHistoryTable" class="display" style="width:100%">
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Voltaje</th>
+                <th>Amperaje</th>
+                <th>Frecuencia</th>
+                <th>Torque</th>
+                <th>HP</th>
+              </tr>
+            </thead>
+            <tbody id="parametrosHistoryBody"></tbody>
+          </table>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="nivelesHistoryDialog" class="edit-dialog">
+      <form method="dialog" class="history-dialog-form">
+        <div class="table-head">
+          <h3>Historico Completo de Tomas de Nivel</h3>
+          <button id="closeNivelesHistoryBtn" type="submit" class="btn-secondary">Cerrar</button>
+        </div>
+        <div class="table-wrap">
+          <table id="nivelesHistoryTable" class="display" style="width:100%">
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>ft</th>
+                <th>%</th>
+                <th>PIP</th>
+                <th>PBHP</th>
+                <th>PDF</th>
+              </tr>
+            </thead>
+            <tbody id="nivelesHistoryBody"></tbody>
+          </table>
+        </div>
+      </form>
+    </dialog>
+
+    <script src="/vendor/localforage.min.js"></script>
+    <script src="/vendor/xlsx.full.min.js"></script>
+    <script src="/vendor/chart.umd.min.js"></script>
+    <script src="/vendor/jspdf.umd.min.js"></script>
+    <script src="/vendor/jspdf.plugin.autotable.min.js"></script>
+    <script src="/vendor/lucide.min.js"></script>
+    <script src="/vendor/jquery-3.7.1.min.js"></script>
+    <script src="/vendor/jquery.dataTables.min.js"></script>
+    <script src="/vendor/dataTables.responsive.min.js"></script>
+    <script src="/vendor/dataTables.buttons.min.js"></script>
+    <script src="/vendor/buttons.colVis.min.js"></script>
+    <script src="/vendor/buttons.html5.min.js"></script>
+    <script src="/vendor/buttons.print.min.js"></script>
+    <script src="/vendor/jszip.min.js"></script>
+    <script src="/vendor/pdfmake.min.js"></script>
+    <script src="/vendor/vfs_fonts.js"></script>
+    <script src="/vendor/firebase-app-compat.js"></script>
+    <script src="/vendor/firebase-firestore-compat.js"></script>
+    <script src="/vendor/firebase-storage-compat.js"></script>
     <script src="/firebase.config.js"></script>
     <script type="module" src="/js/ui.js"></script>
   </body>

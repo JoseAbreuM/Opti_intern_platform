@@ -1,4 +1,4 @@
-const CACHE_VERSION = "opti-ams-v3";
+const CACHE_VERSION = "opti-ams-v7";
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 const PDF_CACHE = `${CACHE_VERSION}-pdfs`;
@@ -13,12 +13,39 @@ const STATIC_ASSETS = [
   "/js/db.js",
   "/js/auth.js",
   "/js/firebase.js",
-  "/assets/logo-placeholder.svg",
-  "/assets/sample-diagrama.pdf"
+  "/assets/icono.png",
+  "/assets/header.png",
+  "/assets/sample-diagrama.pdf",
+  "/vendor/localforage.min.js",
+  "/vendor/xlsx.full.min.js",
+  "/vendor/chart.umd.min.js",
+  "/vendor/jspdf.umd.min.js",
+  "/vendor/jspdf.plugin.autotable.min.js",
+  "/vendor/lucide.min.js",
+  "/vendor/jquery-3.7.1.min.js",
+  "/vendor/jquery.dataTables.min.js",
+  "/vendor/dataTables.responsive.min.js",
+  "/vendor/dataTables.buttons.min.js",
+  "/vendor/buttons.colVis.min.js",
+  "/vendor/buttons.html5.min.js",
+  "/vendor/buttons.print.min.js",
+  "/vendor/jszip.min.js",
+  "/vendor/pdfmake.min.js",
+  "/vendor/vfs_fonts.js",
+  "/vendor/firebase-app-compat.js",
+  "/vendor/firebase-firestore-compat.js",
+  "/vendor/firebase-storage-compat.js",
+  "/vendor/jquery.dataTables.min.css",
+  "/vendor/buttons.dataTables.min.css",
+  "/vendor/responsive.dataTables.min.css"
 ];
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(caches.open(STATIC_CACHE).then((cache) => cache.addAll(STATIC_ASSETS)));
+  event.waitUntil((async () => {
+    const staticCache = await caches.open(STATIC_CACHE);
+    await staticCache.addAll(STATIC_ASSETS);
+
+  })());
   self.skipWaiting();
 });
 
