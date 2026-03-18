@@ -126,6 +126,8 @@ export async function fetchPozos(maxRows = 250) {
     return [];
   }
 
+  let aggregateRows = [];
+
   // Esquema actual de mapa-trillas-bare: un documento `pozos/data` con array `pozos[]`.
   try {
     const aggregateDoc = await db.collection(MASTER_COLLECTION).doc(MASTER_DOC_ID).get();
@@ -133,7 +135,7 @@ export async function fetchPozos(maxRows = 250) {
       const aggregate = aggregateDoc.data() || {};
       const rows = Array.isArray(aggregate.pozos) ? aggregate.pozos : [];
       if (rows.length) {
-        return rows.slice(0, maxRows).map((row, idx) => {
+        aggregateRows = rows.slice(0, maxRows).map((row, idx) => {
           const estado = firstNonEmpty(row.estado, row.status, "En observacion");
           const id = String(firstNonEmpty(row.id, row.pozoId, row.pozo_id, `POZO-${idx + 1}`));
           const classif = classifyEstado(estado);
@@ -173,38 +175,60 @@ export async function fetchPozos(maxRows = 250) {
         continue;
       }
 
-      return snapshot.docs.map((doc) => {
-        const data = doc.data() || {};
-        const estado = firstNonEmpty(data.estado, data.status, "En observacion");
-        const classif = classifyEstado(estado);
-        return {
-          id: firstNonEmpty(doc.id, data.id, data.pozoId, data.pozo_id, "POZO-000"),
-          nombre: firstNonEmpty(data.nombre, data.name, data.pozo, doc.id),
-          area: firstNonEmpty(data.area, data.zona, data.zone, "N/A"),
-          zona: firstNonEmpty(data.zona, data.area, data.zone, "N/A"),
-          estado,
-          potencial: toNumber(firstNonEmpty(data.potencial, data.potential, 0)),
-          categoria: toCategory(firstNonEmpty(data.categoria, data.category), estado),
-          esDiferido: classif.esDiferido,
-          cabezal: firstNonEmpty(data.cabezal, data.cabezal_tipo, data.head, ""),
-          variador: firstNonEmpty(data.variador, data.variador_modelo, data.vfd, ""),
-          bomba_marca: firstNonEmpty(data.bomba_marca, data.marca_bomba, data.pump_brand, ""),
-          bomba_caudal: firstNonEmpty(data.bomba_caudal, data.caudal_bomba, data.pump_flow, ""),
-          bomba_tvu: firstNonEmpty(data.bomba_tvu, data.tvu, ""),
-          diagrama_mecanico: firstNonEmpty(data.diagrama_mecanico, data.mechanical_diagram, ""),
-          num_tuberias: firstNonEmpty(data.num_tuberias, data.numero_tuberias, ""),
-          diametro_tuberias: firstNonEmpty(data.diametro_tuberias, data.diam_tuberias, ""),
-          num_cabillas: firstNonEmpty(data.num_cabillas, data.numero_cabillas, ""),
-          diametro_cabillas: firstNonEmpty(data.diametro_cabillas, data.diam_cabillas, ""),
-          longitud_cabillas: firstNonEmpty(data.longitud_cabillas, data.long_cabillas, "")
-        };
-      });
+      const collectionRows = snapshot.docs
+        .map((doc) => {
+          const data = doc.data() || {};
+          // Evitar incluir el documento agregado `pozos/data` como si fuera un pozo.
+          if (doc.id === MASTER_DOC_ID && Array.isArray(data.pozos)) {
+            return null;
+          }
+
+          const estado = firstNonEmpty(data.estado, data.status, "En observacion");
+          const classif = classifyEstado(estado);
+          return {
+            id: firstNonEmpty(doc.id, data.id, data.pozoId, data.pozo_id, "POZO-000"),
+            nombre: firstNonEmpty(data.nombre, data.name, data.pozo, doc.id),
+            area: firstNonEmpty(data.area, data.zona, data.zone, "N/A"),
+            zona: firstNonEmpty(data.zona, data.area, data.zone, "N/A"),
+            estado,
+            potencial: toNumber(firstNonEmpty(data.potencial, data.potential, 0)),
+            categoria: toCategory(firstNonEmpty(data.categoria, data.category), estado),
+            esDiferido: classif.esDiferido,
+            cabezal: firstNonEmpty(data.cabezal, data.cabezal_tipo, data.head, ""),
+            variador: firstNonEmpty(data.variador, data.variador_modelo, data.vfd, ""),
+            bomba_marca: firstNonEmpty(data.bomba_marca, data.marca_bomba, data.pump_brand, ""),
+            bomba_caudal: firstNonEmpty(data.bomba_caudal, data.caudal_bomba, data.pump_flow, ""),
+            bomba_tvu: firstNonEmpty(data.bomba_tvu, data.tvu, ""),
+            diagrama_mecanico: firstNonEmpty(data.diagrama_mecanico, data.mechanical_diagram, ""),
+            num_tuberias: firstNonEmpty(data.num_tuberias, data.numero_tuberias, ""),
+            diametro_tuberias: firstNonEmpty(data.diametro_tuberias, data.diam_tuberias, ""),
+            num_cabillas: firstNonEmpty(data.num_cabillas, data.numero_cabillas, ""),
+            diametro_cabillas: firstNonEmpty(data.diametro_cabillas, data.diam_cabillas, ""),
+            longitud_cabillas: firstNonEmpty(data.longitud_cabillas, data.long_cabillas, "")
+          };
+        })
+        .filter(Boolean);
+
+      if (!collectionRows.length) {
+        continue;
+      }
+
+      // Si ambas fuentes existen, tomar la más completa para evitar datasets truncados.
+      if (aggregateRows.length > collectionRows.length) {
+        return aggregateRows;
+      }
+
+      return collectionRows;
     } catch (error) {
       // Probar siguiente colección candidata.
     }
   }
 
-  return [];
+  return aggregateRows;
+}
+
+export async function fetchAllPozos(maxRows = 5000) {
+  return fetchPozos(maxRows);
 }
 
 export async function updatePozoBaseData(pozoId, payload) {
@@ -286,6 +310,21 @@ export async function fetchLatestTomasNivel(pozoId, maxRows = 12) {
       id: doc.id
     };
   });
+}
+
+export async function fetchPozoHistory(pozoId, maxRows = 500) {
+  const normalized = normalizePozoId(pozoId);
+  const [parametros, niveles] = await Promise.all([
+    fetchLatestParametros(normalized, maxRows),
+    fetchLatestTomasNivel(normalized, maxRows)
+  ]);
+
+  return {
+    pozoId: normalized,
+    parametros,
+    niveles,
+    syncedAt: new Date().toISOString()
+  };
 }
 
 export async function uploadTomaNivelPdf(file, pozoId) {

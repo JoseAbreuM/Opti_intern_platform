@@ -3,7 +3,10 @@ const OFFLINE_DB = "opti-ams-offline";
 const queues = {
   parametros: localforage.createInstance({ name: OFFLINE_DB, storeName: "queue_parametros" }),
   tomasNivel: localforage.createInstance({ name: OFFLINE_DB, storeName: "queue_tomas_nivel" }),
-  cache: localforage.createInstance({ name: OFFLINE_DB, storeName: "cache_general" })
+  cache: localforage.createInstance({ name: OFFLINE_DB, storeName: "cache_general" }),
+  catalogo: localforage.createInstance({ name: OFFLINE_DB, storeName: "cache_catalogo_pozos" }),
+  historial: localforage.createInstance({ name: OFFLINE_DB, storeName: "cache_historial_pozos" }),
+  metadata: localforage.createInstance({ name: OFFLINE_DB, storeName: "cache_metadata" })
 };
 
 export async function saveFormData(formType, payload) {
@@ -28,6 +31,61 @@ export async function saveFormData(formType, payload) {
 
 export async function getLatestRecords() {
   return (await queues.cache.getItem("latestRecords")) || [];
+}
+
+export async function cacheWellsSnapshot(wells, metadata = {}) {
+  const normalizedWells = Array.isArray(wells) ? wells : [];
+  const payload = {
+    wells: normalizedWells,
+    syncedAt: new Date().toISOString(),
+    source: metadata.source || "firebase",
+    total: normalizedWells.length
+  };
+
+  await queues.catalogo.setItem("wellsSnapshot", payload);
+  return payload;
+}
+
+export async function getCachedWellsSnapshot() {
+  return (await queues.catalogo.getItem("wellsSnapshot")) || null;
+}
+
+export async function cachePozoHistory(pozoId, history = {}) {
+  const id = String(pozoId || "").trim();
+  if (!id) {
+    return null;
+  }
+
+  const payload = {
+    pozoId: id,
+    parametros: Array.isArray(history.parametros) ? history.parametros : [],
+    niveles: Array.isArray(history.niveles) ? history.niveles : [],
+    syncedAt: history.syncedAt || new Date().toISOString()
+  };
+
+  await queues.historial.setItem(id, payload);
+  return payload;
+}
+
+export async function getCachedPozoHistory(pozoId) {
+  const id = String(pozoId || "").trim();
+  if (!id) {
+    return null;
+  }
+  return (await queues.historial.getItem(id)) || null;
+}
+
+export async function setOfflineDatasetMeta(meta = {}) {
+  const payload = {
+    ...meta,
+    updatedAt: new Date().toISOString()
+  };
+  await queues.metadata.setItem("offlineDataset", payload);
+  return payload;
+}
+
+export async function getOfflineDatasetMeta() {
+  return (await queues.metadata.getItem("offlineDataset")) || null;
 }
 
 export async function syncPendingToFirebase(firebaseSyncAdapter) {

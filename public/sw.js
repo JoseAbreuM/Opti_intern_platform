@@ -1,4 +1,4 @@
-const CACHE_VERSION = "opti-ams-v7";
+const CACHE_VERSION = "opti-ams-v9";
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 const PDF_CACHE = `${CACHE_VERSION}-pdfs`;
@@ -44,7 +44,6 @@ self.addEventListener("install", (event) => {
   event.waitUntil((async () => {
     const staticCache = await caches.open(STATIC_CACHE);
     await staticCache.addAll(STATIC_ASSETS);
-
   })());
   self.skipWaiting();
 });
@@ -72,8 +71,13 @@ self.addEventListener("fetch", (event) => {
 
   if (request.mode === "navigate") {
     event.respondWith(
-      fetch(request).catch(() => caches.match("/index.html"))
+      networkFirstWithFallback(request, "/index.html")
     );
+    return;
+  }
+
+  if (url.origin === self.location.origin && STATIC_ASSETS.includes(url.pathname)) {
+    event.respondWith(cacheFirst(request, STATIC_CACHE));
     return;
   }
 
@@ -140,4 +144,23 @@ async function staleWhileRevalidate(request, cacheName) {
     .catch(() => null);
 
   return cached || networkPromise || Response.error();
+}
+
+async function networkFirstWithFallback(request, fallbackPath) {
+  try {
+    const response = await fetch(request);
+    const cache = await caches.open(RUNTIME_CACHE);
+    cache.put(request, response.clone());
+    return response;
+  } catch (error) {
+    const cached = await caches.match(request);
+    if (cached) {
+      return cached;
+    }
+    const fallback = await caches.match(fallbackPath);
+    if (fallback) {
+      return fallback;
+    }
+    return Response.error();
+  }
 }

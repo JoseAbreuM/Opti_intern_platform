@@ -1,9 +1,21 @@
 import { calcularPotenciaYTorque, calcularTendencia } from "./calculos.js";
-import { getLatestRecords, saveFormData, syncPendingToFirebase } from "./db.js";
+import {
+  cachePozoHistory,
+  cacheWellsSnapshot,
+  getCachedPozoHistory,
+  getCachedWellsSnapshot,
+  getLatestRecords,
+  getOfflineDatasetMeta,
+  saveFormData,
+  setOfflineDatasetMeta,
+  syncPendingToFirebase
+} from "./db.js";
 import { verifyOfflineLogin } from "./auth.js";
 import {
+  fetchAllPozos,
   fetchLatestParametros,
   fetchLatestTomasNivel,
+  fetchPozoHistory,
   fetchPozos,
   isFirebaseReady,
   normalizePozoId,
@@ -282,7 +294,10 @@ function setupPWA() {
     });
   }
 
-  window.addEventListener("online", trySync);
+  window.addEventListener("online", async () => {
+    await trySync();
+    await refreshOfflineDatasetIfNeeded({ force: true });
+  });
   window.addEventListener("online", updateConnectionBadge);
   window.addEventListener("offline", updateConnectionBadge);
   updateConnectionBadge();
@@ -332,10 +347,22 @@ async function bootstrap() {
 
   hydrateLocalState(await getLatestRecords());
 
+  const cachedSnapshot = await getCachedWellsSnapshot();
+  if (cachedSnapshot?.wells?.length) {
+    state.wells = cachedSnapshot.wells;
+    syncBadge.textContent = `Offline listo: ${state.wells.length} pozos en cache`;
+  }
+
   if (navigator.onLine && isFirebaseReady()) {
     try {
-      state.wells = await fetchPozos();
-      syncBadge.textContent = `Firebase: ${state.wells.length} pozos cargados`;
+      state.wells = await fetchAllPozos();
+      await cacheWellsSnapshot(state.wells, { source: "firebase-bootstrap" });
+      await setOfflineDatasetMeta({
+        syncedAt: new Date().toISOString(),
+        wellsCount: state.wells.length,
+        version: Date.now()
+      });
+      syncBadge.textContent = `Firebase: ${state.wells.length} pozos sincronizados`;
     } catch (error) {
       syncBadge.textContent = "No se pudo leer Firebase (revisar reglas/coleccion)";
     }
@@ -353,6 +380,7 @@ async function bootstrap() {
   }
 
   await setActivePozo(state.wells[0].id);
+  await refreshOfflineDatasetIfNeeded();
   hydrateEditSelectors();
   renderDashboard();
   renderWellsTable();
@@ -372,20 +400,88 @@ async function setActivePozo(pozoId) {
   parametrosForm.pozoId.value = normalized;
   nivelForm.pozoId.value = normalized;
 
-  if (navigator.onLine && isFirebaseReady()) {
-    const [remoteParams, remoteNiveles] = await Promise.all([
-      fetchLatestParametros(normalized, 500),
-      fetchLatestTomasNivel(normalized, 500)
-    ]);
-    if (remoteParams.length) {
-      state.parametrosByPozo.set(normalized, dedupeByKey(remoteParams, paramKey));
+  const cachedHistory = await getCachedPozoHistory(normalized);
+  if (cachedHistory) {
+    if (cachedHistory.parametros?.length) {
+      state.parametrosByPozo.set(normalized, dedupeByKey(cachedHistory.parametros, paramKey));
     }
-    if (remoteNiveles.length) {
-      state.nivelesByPozo.set(normalized, dedupeByKey(remoteNiveles, nivelKey));
+    if (cachedHistory.niveles?.length) {
+      state.nivelesByPozo.set(normalized, dedupeByKey(cachedHistory.niveles, nivelKey));
+    }
+  }
+
+  if (navigator.onLine && isFirebaseReady()) {
+    try {
+      const remoteHistory = await fetchPozoHistory(normalized, 500);
+      if (remoteHistory.parametros.length) {
+        state.parametrosByPozo.set(normalized, dedupeByKey(remoteHistory.parametros, paramKey));
+      }
+      if (remoteHistory.niveles.length) {
+        state.nivelesByPozo.set(normalized, dedupeByKey(remoteHistory.niveles, nivelKey));
+      }
+      await cachePozoHistory(normalized, remoteHistory);
+    } catch (error) {
+      // Si falla la red, mantener los datos cacheados/locales.
     }
   }
 
   renderPozoDetail();
+}
+
+async function refreshOfflineDatasetIfNeeded({ force = false } = {}) {
+  if (!navigator.onLine || !isFirebaseReady()) {
+    return;
+  }
+
+  const meta = await getOfflineDatasetMeta();
+  const lastSyncMs = meta?.syncedAt ? new Date(meta.syncedAt).getTime() : 0;
+  const ageMs = Date.now() - lastSyncMs;
+  const isStale = !lastSyncMs || ageMs > 1000 * 60 * 30;
+
+  if (!force && !isStale) {
+    return;
+  }
+
+  try {
+    const wells = await fetchPozos(5000);
+    if (wells.length) {
+      state.wells = wells;
+      await cacheWellsSnapshot(wells, { source: "firebase-refresh" });
+
+      const subset = wells.slice(0, 150);
+      await Promise.all(
+        subset.map(async (well) => {
+          const id = normalizePozoId(well.id);
+          const history = await fetchPozoHistory(id, 200);
+          await cachePozoHistory(id, history);
+        })
+      );
+
+      await setOfflineDatasetMeta({
+        syncedAt: new Date().toISOString(),
+        wellsCount: wells.length,
+        prefetchedHistoryCount: subset.length,
+        reason: force ? "forced-online" : "ttl-refresh"
+      });
+
+      if (state.activePozoId) {
+        const activeHistory = await getCachedPozoHistory(state.activePozoId);
+        if (activeHistory?.parametros?.length) {
+          state.parametrosByPozo.set(state.activePozoId, dedupeByKey(activeHistory.parametros, paramKey));
+        }
+        if (activeHistory?.niveles?.length) {
+          state.nivelesByPozo.set(state.activePozoId, dedupeByKey(activeHistory.niveles, nivelKey));
+        }
+      }
+
+      renderWellsTable();
+      renderDashboard();
+      renderPozoDetail();
+      syncBadge.textContent = `Offline actualizado: ${wells.length} pozos`;
+    }
+  } catch (error) {
+    // Mantener cache existente cuando falla la actualización.
+  }
 }
 
 function renderDashboard() {
