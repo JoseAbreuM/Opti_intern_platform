@@ -606,6 +606,41 @@ thead th {
   z-index: 1300;
 }
 
+.mobile-note-toast {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: calc(72px + env(safe-area-inset-bottom));
+  z-index: 1600;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.mobile-note-toast.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.mobile-note-toast-card {
+  background: #ffffff;
+  border: 1px solid #d9e2f3;
+  border-radius: 12px;
+  box-shadow: 0 12px 24px rgba(13, 24, 54, 0.22);
+  padding: 12px;
+}
+
+.mobile-note-toast-card p {
+  margin: 0;
+  font-size: 0.86rem;
+  color: #111827;
+  line-height: 1.35;
+}
+
+.mobile-note-toast-card .btn-secondary {
+  margin-top: 10px;
+}
+
 .install-btn {
   margin-top: 0;
 }
@@ -788,9 +823,104 @@ thead th {
     min-height: 40px;
   }
 
+  #wellsTable_wrapper .top {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    align-items: start;
+  }
+
+  #wellsTable_wrapper .top .dt-buttons {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+    width: 100%;
+  }
+
+  #wellsTable_wrapper .top .dt-button {
+    min-height: 36px;
+    padding: 7px 6px;
+    font-size: 0.76rem;
+    line-height: 1.2;
+    margin: 0 !important;
+  }
+
+  #wellsTable_wrapper .top .dataTables_length,
+  #wellsTable_wrapper .top .dataTables_filter {
+    width: 100%;
+    margin: 0;
+  }
+
+  #wellsTable_wrapper .top .dataTables_length select,
+  #wellsTable_wrapper .top .dataTables_filter input {
+    min-height: 36px;
+    font-size: 0.8rem;
+  }
+
+  #wellsTable_wrapper .bottom {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
   .trend-panel-head {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  #wellsTable {
+    border: 0;
+  }
+
+  #wellsTable thead {
+    display: none;
+  }
+
+  #wellsTable tbody tr {
+    display: block;
+    border: 1px solid #dce3f0;
+    border-radius: 10px;
+    padding: 8px;
+    margin-bottom: 10px;
+    background: #fff;
+  }
+
+  #wellsTable tbody td {
+    display: grid;
+    grid-template-columns: 96px 1fr;
+    gap: 8px;
+    border-bottom: 1px dashed #e6ebf5;
+    padding: 7px 6px;
+    white-space: normal;
+  }
+
+  #wellsTable tbody td:last-child {
+    border-bottom: 0;
+  }
+
+  #wellsTable tbody td::before {
+    content: attr(data-label);
+    font-weight: 700;
+    color: var(--muted);
+  }
+
+  #wellsTable tbody td[data-label="Acciones"] {
+    grid-template-columns: 1fr;
+  }
+
+  #wellsTable tbody td[data-label="Acciones"]::before {
+    margin-bottom: 4px;
+  }
+
+  #wellsTable tbody td[data-label="Acciones"] .btn-secondary {
+    margin-top: 0;
+    width: 100%;
+  }
+
+  #wellsTable tbody td[data-label="Acciones"] {
+    display: grid;
+    gap: 8px;
   }
 
   #parametrosTable,

@@ -68,8 +68,18 @@ const wellEditEstadoSelect = wellEditForm.querySelector('select[name="estado"]')
 const wellEditAreaSelect = wellEditForm.querySelector('select[name="area"]');
 const pdfViewer = document.getElementById("pdfViewer");
 const latestNivelPdfWrap = document.getElementById("latestNivelPdfWrap");
+const mobileNoteToast = document.getElementById("mobileNoteToast");
+const mobileNoteToastText = document.getElementById("mobileNoteToastText");
+const mobileNoteToastClose = document.getElementById("mobileNoteToastClose");
 const parametrosTrendMetricSelect = document.getElementById("parametrosTrendMetric");
 const nivelesTrendMetricSelect = document.getElementById("nivelesTrendMetric");
+const fgCabezalRow = document.getElementById("fgCabezalRow");
+const fgVariadorRow = document.getElementById("fgVariadorRow");
+const pozoBombaCard = document.getElementById("pozoBombaCard");
+const parametrosSection = document.getElementById("parametrosSection");
+const categoryNoteCard = document.getElementById("categoryNoteCard");
+const categoryNoteTitle = document.getElementById("categoryNoteTitle");
+const categoryNoteText = document.getElementById("categoryNoteText");
 
 const fichaFields = {
   pozoId: document.getElementById("fgPozoId"),
@@ -247,7 +257,17 @@ function setupForms() {
 }
 
 function setupWellsTableActions() {
+  mobileNoteToastClose?.addEventListener("click", () => {
+    hideMobileNoteToast();
+  });
+
   wellsTableBody.addEventListener("click", (event) => {
+    const statusChip = event.target.closest(".status-chip[data-note]");
+    if (statusChip && isMobileViewport()) {
+      showMobileNoteToast(statusChip.dataset.note || "Sin nota registrada.");
+      return;
+    }
+
     const actionButton = event.target.closest("button[data-action]");
     if (!actionButton) {
       return;
@@ -585,13 +605,18 @@ function renderWellsTable() {
     const estadoLabel = formatEstadoLabel(estadoRaw);
     const estadoClass = getEstadoClass(estadoRaw);
     const categoria = Number(well.categoria || 2);
+    const notaMotivo = getWellCategoryNote(well);
+    const estadoTooltip = notaMotivo && notaMotivo !== "-"
+      ? ` title="${escapeHtml(`Nota/Motivo: ${notaMotivo}`)}" data-note="${escapeHtml(notaMotivo)}"`
+      : "";
+    const estadoHint = notaMotivo && notaMotivo !== "-" ? " *" : "";
     row.innerHTML = `
-      <td><strong>${escapeHtml(pozoName)}</strong></td>
-      <td><span class="cat-chip cat-${categoria}">Cat-${categoria}</span></td>
-      <td><span class="status-chip ${estadoClass}"><span class="status-dot"></span>${escapeHtml(estadoLabel)}</span></td>
-      <td>${escapeHtml(well.area || "N/A")}</td>
-      <td>${Number(well.potencial || 0).toFixed(2)}</td>
-      <td>
+      <td data-label="Pozo"><strong>${escapeHtml(pozoName)}</strong></td>
+      <td data-label="Categoria"><span class="cat-chip cat-${categoria}">Cat-${categoria}</span></td>
+      <td data-label="Estado"><span class="status-chip ${estadoClass}"${estadoTooltip}><span class="status-dot"></span>${escapeHtml(estadoLabel)}${escapeHtml(estadoHint)}</span></td>
+      <td data-label="Area">${escapeHtml(well.area || "N/A")}</td>
+      <td data-label="Potencial">${Number(well.potencial || 0).toFixed(2)}</td>
+      <td data-label="Acciones">
         <button class="btn-secondary" data-action="view" data-pozo-id="${escapeHtml(well.id)}">Ficha</button>
         <button class="btn-secondary" data-action="edit" data-pozo-id="${escapeHtml(well.id)}">Editar</button>
       </td>
@@ -615,8 +640,8 @@ function initDataTable() {
   }
 
   state.wellsDataTable = $table.DataTable({
-    pageLength: 12,
-    lengthMenu: [12, 25, 50, 100],
+    pageLength: window.matchMedia("(max-width: 768px)").matches ? 6 : 12,
+    lengthMenu: window.matchMedia("(max-width: 768px)").matches ? [6, 12, 25] : [12, 25, 50, 100],
     order: [[0, "asc"]],
     responsive: {
       details: {
@@ -684,6 +709,7 @@ function renderPozoDetail() {
   const activeWell = getActiveWell();
 
   renderFichaGeneralData(activeWell);
+  applyCategoriaFichaRules(activeWell);
 
   parametrosTableBody.innerHTML = "";
 
@@ -732,6 +758,60 @@ function renderPozoDetail() {
   renderInteractiveTrendCharts(allParametros, allNiveles);
 
   renderHistoryBodies(allParametros, allNiveles);
+}
+
+function applyCategoriaFichaRules(well) {
+  const categoria = Number(well?.categoria || 2);
+  const isCat3 = categoria === 3;
+  const isCat2 = categoria === 2;
+
+  if (fgCabezalRow) {
+    fgCabezalRow.hidden = isCat3;
+  }
+  if (fgVariadorRow) {
+    fgVariadorRow.hidden = isCat3;
+  }
+  if (pozoBombaCard) {
+    pozoBombaCard.hidden = isCat3;
+  }
+  if (parametrosSection) {
+    parametrosSection.hidden = isCat3;
+  }
+
+  if (!categoryNoteCard || !categoryNoteTitle || !categoryNoteText) {
+    return;
+  }
+
+  if (isCat2) {
+    categoryNoteCard.hidden = false;
+    categoryNoteTitle.textContent = "Nota Categoria 2";
+    categoryNoteText.textContent = firstNonEmpty(
+      well?.nota,
+      well?.diagnostico,
+      well?.nota_diagnostico,
+      well?.motivo,
+      well?.razon,
+      well?.observaciones,
+      "Sin diagnostico o motivo registrado en mapa."
+    );
+    return;
+  }
+
+  if (isCat3) {
+    categoryNoteCard.hidden = false;
+    categoryNoteTitle.textContent = "Motivo Categoria 3 / Diferido";
+    categoryNoteText.textContent = firstNonEmpty(
+      well?.causaDiferido,
+      well?.causa_diferido,
+      well?.motivo_diferido,
+      well?.motivo,
+      well?.razon,
+      "Sin motivo de diferido registrado en mapa."
+    );
+    return;
+  }
+
+  categoryNoteCard.hidden = true;
 }
 
 function renderFichaGeneralData(well) {
@@ -1583,4 +1663,57 @@ function formatEstadoLabel(estado) {
   if (key === "candidato") return "Candidato";
   if (key === "diferido") return "Diferido";
   return estado;
+}
+
+function getWellCategoryNote(well) {
+  const categoria = Number(well?.categoria || 2);
+  if (categoria === 2) {
+    return firstNonEmpty(
+      well?.nota,
+      well?.diagnostico,
+      well?.nota_diagnostico,
+      well?.motivo,
+      well?.razon,
+      well?.observaciones,
+      "-"
+    );
+  }
+
+  if (categoria === 3) {
+    return firstNonEmpty(
+      well?.causaDiferido,
+      well?.causa_diferido,
+      well?.motivo_diferido,
+      well?.motivo,
+      well?.razon,
+      "-"
+    );
+  }
+
+  return "-";
+}
+
+function isMobileViewport() {
+  return window.matchMedia("(max-width: 768px)").matches;
+}
+
+function showMobileNoteToast(note) {
+  if (!mobileNoteToast || !mobileNoteToastText) {
+    return;
+  }
+  mobileNoteToastText.textContent = note;
+  mobileNoteToast.hidden = false;
+  requestAnimationFrame(() => {
+    mobileNoteToast.classList.add("is-visible");
+  });
+}
+
+function hideMobileNoteToast() {
+  if (!mobileNoteToast) {
+    return;
+  }
+  mobileNoteToast.classList.remove("is-visible");
+  setTimeout(() => {
+    mobileNoteToast.hidden = true;
+  }, 180);
 }

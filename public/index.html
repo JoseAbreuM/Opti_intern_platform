@@ -176,6 +176,11 @@
               <button id="exportFichaPdfBtn" class="btn-primary" type="button">Exportar PDF Ficha Tecnica</button>
             </div>
 
+            <article id="categoryNoteCard" class="card" hidden>
+              <h3 id="categoryNoteTitle">Nota de Categoria</h3>
+              <p id="categoryNoteText" class="hint">Sin notas registradas.</p>
+            </article>
+
             <div class="ficha-tech-grid">
               <article class="card">
                 <h3>Ficha General del Pozo</h3>
@@ -183,8 +188,8 @@
                   <div><dt>ID</dt><dd id="fgPozoId">N/A</dd></div>
                   <div><dt>Zona</dt><dd id="fgZona">N/A</dd></div>
                   <div><dt>Estado</dt><dd id="fgEstado">N/A</dd></div>
-                  <div><dt>Cabezal</dt><dd id="fgCabezal">N/A</dd></div>
-                  <div><dt>Variador</dt><dd id="fgVariador">N/A</dd></div>
+                  <div id="fgCabezalRow"><dt>Cabezal</dt><dd id="fgCabezal">N/A</dd></div>
+                  <div id="fgVariadorRow"><dt>Variador</dt><dd id="fgVariador">N/A</dd></div>
                   <div><dt>Arena</dt><dd id="fgArena">N/A</dd></div>
                   <div><dt>Fecha de Arranque</dt><dd id="fgFechaArranque">N/A</dd></div>
                   <div><dt>Velocidad Operacional (RPM)</dt><dd id="fgVelocidadRpm">N/A</dd></div>
@@ -192,7 +197,7 @@
                 </dl>
               </article>
 
-              <article class="card">
+              <article id="pozoBombaCard" class="card">
                 <h3>Datos de Bomba</h3>
                 <dl class="kv-list" id="pozoBombaData">
                   <div><dt>Marca</dt><dd id="fbMarca">N/A</dd></div>
@@ -237,6 +242,7 @@
               </div>
 
               <div>
+                <div id="parametrosSection">
                 <h3>Últimos Parámetros</h3>
                 <div class="table-wrap">
                   <table id="parametrosTable">
@@ -272,6 +278,7 @@
                     </label>
                   </div>
                   <canvas id="parametrosTrendChart" height="120"></canvas>
+                </div>
                 </div>
 
                 <h3 class="sub-table-title">Últimas Tomas de Nivel</h3>
@@ -323,6 +330,13 @@
         <button class="nav-item" data-view="carga"><i data-lucide="sliders-horizontal"></i></button>
         <button class="nav-item" data-view="nivel"><i data-lucide="ruler"></i></button>
       </nav>
+
+      <div id="mobileNoteToast" class="mobile-note-toast" hidden>
+        <div class="mobile-note-toast-card">
+          <p id="mobileNoteToastText"></p>
+          <button id="mobileNoteToastClose" type="button" class="btn-secondary">Cerrar</button>
+        </div>
+      </div>
     </div>
 
     <dialog id="wellEditDialog" class="edit-dialog">
