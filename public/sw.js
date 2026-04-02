@@ -1,4 +1,4 @@
-const CACHE_VERSION = "opti-ams-v9";
+const CACHE_VERSION = "opti-ams-v10";
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 const PDF_CACHE = `${CACHE_VERSION}-pdfs`;

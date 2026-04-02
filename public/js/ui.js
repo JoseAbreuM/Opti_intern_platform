@@ -54,7 +54,9 @@ const installAppBtn = document.getElementById("installAppBtn");
 const connectionBadge = document.getElementById("connectionBadge");
 const syncBadge = document.getElementById("syncBadge");
 const hpCalculadoEl = document.getElementById("hpCalculado");
+const torqueAutoCalculadoEl = document.getElementById("torqueAutoCalculado");
 const torqueCalculadoEl = document.getElementById("torqueCalculado");
+const useManualTorqueEl = document.getElementById("useManualTorque");
 const parametrosTableBody = document.getElementById("parametrosTableBody");
 const nivelesTableBody = document.getElementById("nivelesTableBody");
 const wellsTableBody = document.getElementById("wellsTableBody");
@@ -142,17 +144,46 @@ function closeMobileSidebar() {
 function setupForms() {
   const parametrosForm = document.getElementById("parametrosForm");
   const nivelForm = document.getElementById("nivelForm");
+  const torqueManualInput = parametrosForm.querySelector('input[name="torqueManual"]');
 
-  parametrosForm.addEventListener("input", () => {
+  function recalcParametros() {
     const data = new FormData(parametrosForm);
+    if (!useManualTorqueEl?.checked) {
+      data.set("torqueManual", "");
+    }
     const result = calcularPotenciaYTorque(Object.fromEntries(data.entries()));
     hpCalculadoEl.textContent = result.potenciaHp.toFixed(2);
+    torqueAutoCalculadoEl.textContent = result.torqueTeoricoNm.toFixed(2);
     torqueCalculadoEl.textContent = result.torqueAplicadoNm.toFixed(2);
+  }
+
+  function syncTorqueMode() {
+    const useManual = Boolean(useManualTorqueEl?.checked);
+    if (torqueManualInput) {
+      torqueManualInput.disabled = !useManual;
+      if (!useManual) {
+        torqueManualInput.value = "";
+      }
+    }
+    recalcParametros();
+  }
+
+  parametrosForm.addEventListener("input", () => {
+    recalcParametros();
   });
+
+  useManualTorqueEl?.addEventListener("change", () => {
+    syncTorqueMode();
+  });
+
+  syncTorqueMode();
 
   parametrosForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     const payload = Object.fromEntries(new FormData(parametrosForm).entries());
+    if (!useManualTorqueEl?.checked) {
+      payload.torqueManual = "";
+    }
     const result = calcularPotenciaYTorque(payload);
     const pozoId = normalizePozoId(payload.pozoId);
 
@@ -175,6 +206,10 @@ function setupForms() {
 
     parametrosForm.reset();
     parametrosForm.pozoId.value = pozoId;
+    if (useManualTorqueEl) {
+      useManualTorqueEl.checked = false;
+    }
+    syncTorqueMode();
   });
 
   nivelForm.addEventListener("submit", async (event) => {
@@ -547,12 +582,13 @@ function renderWellsTable() {
     const row = document.createElement("tr");
     const pozoName = formatPozoNombre(well.id);
     const estadoRaw = String(well.estado || "N/A");
+    const estadoLabel = formatEstadoLabel(estadoRaw);
     const estadoClass = getEstadoClass(estadoRaw);
     const categoria = Number(well.categoria || 2);
     row.innerHTML = `
       <td><strong>${escapeHtml(pozoName)}</strong></td>
       <td><span class="cat-chip cat-${categoria}">Cat-${categoria}</span></td>
-      <td><span class="status-chip ${estadoClass}"><span class="status-dot"></span>${escapeHtml(estadoRaw)}</span></td>
+      <td><span class="status-chip ${estadoClass}"><span class="status-dot"></span>${escapeHtml(estadoLabel)}</span></td>
       <td>${escapeHtml(well.area || "N/A")}</td>
       <td>${Number(well.potencial || 0).toFixed(2)}</td>
       <td>
@@ -1324,6 +1360,10 @@ function getParametroMetricConfig(metric) {
       label: "Frecuencia (Hz)",
       extractor: (row) => Number(row.frecuencia || 0)
     },
+    rpm: {
+      label: "RPM",
+      extractor: (row) => Number(row.rpm || 0)
+    },
     torqueAplicadoNm: {
       label: "Torque (Nm)",
       extractor: (row) => Number(row.torqueAplicadoNm || row.torque || row.torqueManual || 0)
@@ -1525,10 +1565,22 @@ function firstNonEmpty(...values) {
 
 function getEstadoClass(estado) {
   const s = String(estado || "").toLowerCase();
-  if (s.includes("inactivo por servicio")) return "status-dot-inactivo-servicio";
-  if (s.includes("en servicio")) return "status-dot-en-servicio";
+  if (s.includes("inactivo por servicio") || s.includes("inactivo-servicio")) return "status-dot-inactivo-servicio";
+  if (s.includes("en servicio") || s.includes("en-servicio")) return "status-dot-en-servicio";
   if (s.includes("diagnostico")) return "status-dot-diagnostico";
   if (s.includes("candidato")) return "status-dot-candidato";
+  if (s.includes("diferido")) return "status-dot-candidato";
   if (s.includes("activo")) return "status-dot-activo";
   return "status-dot-default";
+}
+
+function formatEstadoLabel(estado) {
+  const key = String(estado || "").toLowerCase().trim();
+  if (key === "activo") return "Activo";
+  if (key === "inactivo-servicio" || key === "inactivo por servicio") return "Inactivo por servicio";
+  if (key === "en-servicio" || key === "en servicio") return "En servicio";
+  if (key === "diagnostico" || key === "diagnóstico") return "En diagnostico";
+  if (key === "candidato") return "Candidato";
+  if (key === "diferido") return "Diferido";
+  return estado;
 }

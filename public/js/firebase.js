@@ -55,6 +55,7 @@ export async function syncRecordToFirebase(record) {
       voltaje: toNumber(payload.voltaje),
       amperaje: toNumber(payload.amperaje),
       frecuencia: toNumber(payload.frecuencia),
+      rpm: toNumber(payload.rpm),
       factor_potencia: toNumber(payload.factorPotencia),
       eficiencia: toNumber(payload.eficiencia),
       polos: toNumber(payload.polos),
@@ -80,7 +81,7 @@ export async function syncRecordToFirebase(record) {
 
     await safeUpsertMasterPozo(pozoId, {
       id: pozoId,
-      estado: firstNonEmpty(payload.estado, "activo"),
+      estado: normalizeEstadoCompat(firstNonEmpty(payload.estado, "activo")),
       potencial: String(firstNonEmpty(payload.potencial, "0")),
       ultima_frecuencia_hz: body.frecuencia,
       ultimo_torque_nm: body.torque,
@@ -136,7 +137,7 @@ export async function fetchPozos(maxRows = 250) {
       const rows = Array.isArray(aggregate.pozos) ? aggregate.pozos : [];
       if (rows.length) {
         aggregateRows = rows.slice(0, maxRows).map((row, idx) => {
-          const estado = firstNonEmpty(row.estado, row.status, "En observacion");
+          const estado = normalizeEstadoCompat(firstNonEmpty(row.estado, row.status, "activo"));
           const id = String(firstNonEmpty(row.id, row.pozoId, row.pozo_id, `POZO-${idx + 1}`));
           const classif = classifyEstado(estado);
           return {
@@ -191,7 +192,7 @@ export async function fetchPozos(maxRows = 250) {
             return null;
           }
 
-          const estado = firstNonEmpty(data.estado, data.status, "En observacion");
+          const estado = normalizeEstadoCompat(firstNonEmpty(data.estado, data.status, "activo"));
           const classif = classifyEstado(estado);
           return {
             id: firstNonEmpty(doc.id, data.id, data.pozoId, data.pozo_id, "POZO-000"),
@@ -229,12 +230,51 @@ export async function fetchPozos(maxRows = 250) {
         continue;
       }
 
-      // Si ambas fuentes existen, tomar la más completa para evitar datasets truncados.
-      if (aggregateRows.length > collectionRows.length) {
-        return aggregateRows;
+      // Unificar ambas fuentes: usar agregado como base y priorizar filas por-documento.
+      // Esto evita mostrar datos viejos cuando otra app actualiza docs individuales.
+      if (aggregateRows.length && collectionRows.length) {
+        const byId = new Map();
+
+        aggregateRows.forEach((row) => {
+          const key = String(row.id || "").trim().toLowerCase();
+          if (key) {
+            byId.set(key, row);
+          }
+        });
+
+        collectionRows.forEach((row) => {
+          const key = String(row.id || "").trim().toLowerCase();
+          if (!key) {
+            return;
+          }
+
+          const base = byId.get(key) || {};
+          const merged = { ...base, ...row };
+
+          // Para estado/categoria, priorizar el dataset agregado (mapa) cuando exista.
+          if (base.estado) {
+            merged.estado = base.estado;
+          }
+          if (base.categoria !== undefined && base.categoria !== null) {
+            merged.categoria = base.categoria;
+          }
+          if (base.esDiferido !== undefined) {
+            merged.esDiferido = base.esDiferido;
+          }
+
+          byId.set(key, merged);
+        });
+
+        return Array.from(byId.values()).slice(0, maxRows);
       }
 
-      return collectionRows;
+      if (collectionRows.length) {
+        return collectionRows;
+      }
+
+      if (aggregateRows.length) {
+        return aggregateRows;
+      }
     } catch (error) {
       // Probar siguiente colección candidata.
     }
@@ -254,13 +294,14 @@ export async function updatePozoBaseData(pozoId, payload) {
 
   const id = normalizePozoId(pozoId);
   const serverTs = window.firebase.firestore.FieldValue.serverTimestamp();
+  const estadoNormalizado = normalizeEstadoCompat(payload.estado || "activo");
 
   await db.collection(MASTER_COLLECTION).doc(id).set(
     {
       id,
       nombre: String(payload.nombre || id).trim(),
       categoria: Number(payload.categoria || 2),
-      estado: String(payload.estado || "En observacion").trim(),
+      estado: estadoNormalizado,
       area: String(payload.area || "N/A").trim(),
       potencial: toNumber(payload.potencial),
       arena: String(payload.arena || "").trim(),
@@ -284,7 +325,7 @@ export async function updatePozoBaseData(pozoId, payload) {
     id,
     nombre: String(payload.nombre || id).trim(),
     categoria: Number(payload.categoria || 2),
-    estado: String(payload.estado || "En observacion").trim(),
+    estado: estadoNormalizado,
     zona: String(payload.area || "N/A").trim(),
     area: String(payload.area || "N/A").trim(),
     potencial: String(toNumber(payload.potencial)),
@@ -379,44 +420,37 @@ export async function uploadTomaNivelPdf(file, pozoId) {
 }
 
 function toCategory(rawCategory, estado) {
-  const classif = classifyEstado(estado);
-  if (classif.categoria !== null) {
-    return classif.categoria;
+  const parsed = Number(rawCategory);
+  // Si viene categoría explícita del origen, respetarla.
+  if ([1, 2, 3].includes(parsed)) {
+    return parsed;
   }
 
-  const parsed = Number(rawCategory);
-  // Validación: categoria 1 solo para estados activos/diagnostico.
-  if (parsed === 1) {
-    return 2;
-  }
-  if ([2, 3].includes(parsed)) {
-    return parsed;
+  const classif = classifyEstado(normalizeEstadoCompat(estado));
+  if (classif.categoria !== null) {
+    return classif.categoria;
   }
   return 2;
 }
 
 function classifyEstado(estado) {
-  const status = normalizeText(estado);
+  const status = normalizeEstadoCompat(estado);
 
-  if (status.includes("diferido")) {
+  if (status === "diferido") {
     return { categoria: 3, esDiferido: true };
   }
-  if (status.includes("candidato")) {
+  if (status === "candidato") {
     return { categoria: 3, esDiferido: false };
   }
-  if (status.includes("en servicio") || status.includes("inactivo por servicio")) {
+  if (status === "en-servicio" || status === "inactivo-servicio") {
     return { categoria: 2, esDiferido: false };
   }
-  if (status.includes("diagnostico")) {
+  if (status === "diagnostico") {
     return { categoria: 1, esDiferido: false };
   }
-  if (status.includes("activo") || status.includes("operativo")) {
+  if (status === "activo") {
     return { categoria: 1, esDiferido: false };
   }
-  if (status.includes("inactivo")) {
-    return { categoria: 2, esDiferido: false };
-  }
-
   return { categoria: null, esDiferido: false };
 }
 
@@ -426,6 +460,40 @@ function normalizeText(value) {
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .trim();
+}
+
+function normalizeEstadoCompat(rawEstado) {
+  const clean = normalizeText(rawEstado);
+  if (clean === "inactivo" || clean === "inactivo por servicio") {
+    return "inactivo-servicio";
+  }
+  if (
+    clean === "revision" ||
+    clean === "revision" ||
+    clean === "en revision" ||
+    clean === "en revision" ||
+    clean === "diagnostico" ||
+    clean === "diagnostico"
+  ) {
+    return "diagnostico";
+  }
+  if (clean === "diferido") {
+    return "diferido";
+  }
+  if (clean === "en servicio") {
+    return "en-servicio";
+  }
+  if (
+    clean === "activo" ||
+    clean === "inactivo-servicio" ||
+    clean === "en-servicio" ||
+    clean === "diagnostico" ||
+    clean === "candidato" ||
+    clean === "diferido"
+  ) {
+    return clean;
+  }
+  return "activo";
 }
 
 async function safeUpsertMasterPozo(pozoId, patch) {

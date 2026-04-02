@@ -396,6 +396,20 @@ select {
   color: var(--muted);
 }
 
+.torque-mode-toggle {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.torque-mode-toggle input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+}
+
 .btn-primary,
 .btn-secondary {
   border: 1px solid transparent;

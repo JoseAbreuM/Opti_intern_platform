@@ -129,14 +129,18 @@
               <label>Voltaje (V)<input type="number" step="0.01" name="voltaje" required /></label>
               <label>Amperaje (A)<input type="number" step="0.01" name="amperaje" required /></label>
               <label>Frecuencia (Hz)<input type="number" step="0.01" name="frecuencia" required /></label>
-              <label>Factor Potencia<input type="number" step="0.01" name="factorPotencia" value="0.86" /></label>
-              <label>Eficiencia<input type="number" step="0.01" name="eficiencia" value="0.92" /></label>
-              <label>Polos Motor<input type="number" step="1" name="polos" value="4" /></label>
+              <label>RPM<input type="number" step="0.01" name="rpm" required /></label>
+              <label class="torque-mode-toggle">
+                <input type="checkbox" id="useManualTorque" />
+                <span>Usar torque manual</span>
+              </label>
               <label>Torque Manual (Nm)<input type="number" step="0.01" name="torqueManual" /></label>
+              <p class="hint">Torque automatico: (V x A x 7.0424) / RPM</p>
 
               <div class="form-results">
                 <p>HP calculado: <strong id="hpCalculado">0.00</strong></p>
-                <p>Torque teórico/aplicado: <strong id="torqueCalculado">0.00</strong></p>
+                <p>Torque automatico: <strong id="torqueAutoCalculado">0.00</strong></p>
+                <p>Torque aplicado: <strong id="torqueCalculado">0.00</strong></p>
               </div>
 
               <button type="submit" class="btn-primary">Guardar Parámetros</button>
@@ -259,6 +263,7 @@
                     <label>Variable
                       <select id="parametrosTrendMetric">
                         <option value="frecuencia">Hz</option>
+                        <option value="rpm">RPM</option>
                         <option value="torqueAplicadoNm">Torque</option>
                         <option value="amperaje">Amperaje</option>
                         <option value="potenciaHp">HP</option>

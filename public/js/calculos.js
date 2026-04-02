@@ -5,19 +5,15 @@ export function calcularPotenciaYTorque({
   voltaje,
   amperaje,
   frecuencia,
-  factorPotencia = 0.86,
-  eficiencia = 0.92,
-  polos = 4,
+  rpm,
   torqueManual = null
 }) {
   const v = toNumber(voltaje);
   const i = toNumber(amperaje);
   const hz = toNumber(frecuencia);
-  const fp = toNumber(factorPotencia) || 0.86;
-  const eta = toNumber(eficiencia) || 0.92;
-  const p = Math.max(2, Math.round(toNumber(polos) || 4));
+  const rpmOperacional = toNumber(rpm);
 
-  if (v <= 0 || i <= 0 || hz <= 0) {
+  if (v <= 0 || i <= 0 || hz <= 0 || rpmOperacional <= 0) {
     return {
       potenciaKw: 0,
       potenciaHp: 0,
@@ -28,14 +24,14 @@ export function calcularPotenciaYTorque({
     };
   }
 
-  const potenciaKw = (SQRT3 * v * i * fp * eta) / 1000;
-  const potenciaHp = potenciaKw * KW_TO_HP;
-  const rpmSincronica = (120 * hz) / p;
-  const torqueTeoricoNm = rpmSincronica > 0 ? (9550 * potenciaKw) / rpmSincronica : 0;
+  const torqueTeoricoNm = (v * i * 7.0424) / rpmOperacional;
 
   const torqueManualNum = toOptionalNumber(torqueManual);
   const esTorqueManual = torqueManualNum !== null;
   const torqueAplicadoNm = esTorqueManual ? torqueManualNum : torqueTeoricoNm;
+  const potenciaKw = (torqueAplicadoNm * rpmOperacional) / 9550;
+  const potenciaHp = potenciaKw * KW_TO_HP;
+  const rpmSincronica = rpmOperacional;
 
   return {
     potenciaKw,
