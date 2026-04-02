@@ -1,4 +1,4 @@
-import { calcularPotenciaYTorque, calcularTendencia } from "./calculos.js";
+import { calcularPotenciaYTorque } from "./calculos.js";
 import {
   cachePozoHistory,
   cacheWellsSnapshot,
@@ -32,7 +32,8 @@ const state = {
   charts: {
     general: null,
     category: null,
-    pozo: null
+    parametrosTrend: null,
+    nivelesTrend: null
   },
   wellsDataTable: null,
   parametrosHistoryDataTable: null,
@@ -65,6 +66,8 @@ const wellEditEstadoSelect = wellEditForm.querySelector('select[name="estado"]')
 const wellEditAreaSelect = wellEditForm.querySelector('select[name="area"]');
 const pdfViewer = document.getElementById("pdfViewer");
 const latestNivelPdfWrap = document.getElementById("latestNivelPdfWrap");
+const parametrosTrendMetricSelect = document.getElementById("parametrosTrendMetric");
+const nivelesTrendMetricSelect = document.getElementById("nivelesTrendMetric");
 
 const fichaFields = {
   pozoId: document.getElementById("fgPozoId"),
@@ -72,10 +75,18 @@ const fichaFields = {
   estado: document.getElementById("fgEstado"),
   cabezal: document.getElementById("fgCabezal"),
   variador: document.getElementById("fgVariador"),
+  arena: document.getElementById("fgArena"),
+  fechaArranque: document.getElementById("fgFechaArranque"),
+  velocidadRpm: document.getElementById("fgVelocidadRpm"),
   potencial: document.getElementById("fgPotencial"),
   bombaMarca: document.getElementById("fbMarca"),
+  bombaModelo: document.getElementById("fbModelo"),
   bombaCaudal: document.getElementById("fbCaudal"),
   bombaTvu: document.getElementById("fbTvu"),
+  surveyTipo: document.getElementById("fsTipo"),
+  surveyFecha: document.getElementById("fsFecha"),
+  surveyProfundidad: document.getElementById("fsProfundidad"),
+  surveyObservaciones: document.getElementById("fsObservaciones"),
   compDiagrama: document.getElementById("fcDiagrama"),
   compNumTuberias: document.getElementById("fcNumTuberias"),
   compDiamTuberias: document.getElementById("fcDiamTuberias"),
@@ -95,6 +106,7 @@ setupForms();
 setupWellsTableActions();
 setupExport();
 setupHistoryDialogs();
+setupTrendControls();
 setupPWA();
 bootstrap();
 
@@ -243,7 +255,18 @@ function setupWellsTableActions() {
       categoria: Number(payload.categoria),
       estado: payload.estado,
       area: payload.area,
-      potencial: Number(payload.potencial || 0)
+      potencial: Number(payload.potencial || 0),
+      arena: String(payload.arena || "").trim(),
+      fecha_arranque: String(payload.fecha_arranque || "").trim(),
+      velocidad_operacional_rpm: Number(payload.velocidad_operacional_rpm || 0),
+      bomba_marca: String(payload.bomba_marca || "").trim(),
+      bomba_modelo: String(payload.bomba_modelo || "").trim(),
+      bomba_caudal: String(payload.bomba_caudal || "").trim(),
+      bomba_tvu: String(payload.bomba_tvu || "").trim(),
+      survey_tipo: String(payload.survey_tipo || "").trim(),
+      survey_fecha: String(payload.survey_fecha || "").trim(),
+      survey_profundidad: String(payload.survey_profundidad || "").trim(),
+      survey_observaciones: String(payload.survey_observaciones || "").trim()
     };
 
     replaceLocalPozo(updated);
@@ -279,6 +302,16 @@ function setupHistoryDialogs() {
 
   document.getElementById("openNivelesHistoryBtn").addEventListener("click", () => {
     openNivelesHistoryDialog();
+  });
+}
+
+function setupTrendControls() {
+  parametrosTrendMetricSelect?.addEventListener("change", () => {
+    renderPozoDetail();
+  });
+
+  nivelesTrendMetricSelect?.addEventListener("change", () => {
+    renderPozoDetail();
   });
 }
 
@@ -616,8 +649,6 @@ function renderPozoDetail() {
 
   renderFichaGeneralData(activeWell);
 
-  const trendHz = [];
-  const trendTorque = [];
   parametrosTableBody.innerHTML = "";
 
   parametros.reverse().forEach((record) => {
@@ -625,18 +656,6 @@ function renderPozoDetail() {
     const torque = Number(record.torqueAplicadoNm || record.torque || record.torqueManual || 0);
     const hp = Number(record.potenciaHp || record.hp_calculado || 0);
     const amp = Number(record.amperaje || 0);
-    const hzTrend = calcularTendencia(hz, trendHz);
-    const tqTrend = calcularTendencia(torque, trendTorque);
-    trendHz.push(hz);
-    trendTorque.push(torque);
-
-    const arrow = hzTrend.alerta || tqTrend.alerta
-      ? hzTrend.direccion === "sube" || tqTrend.direccion === "sube"
-        ? "↑"
-        : "↓"
-      : "→";
-
-    const cls = arrow === "↑" ? "trend-up" : arrow === "↓" ? "trend-down" : "";
     const row = document.createElement("tr");
     row.innerHTML = `
       <td data-label="Fecha">${formatDate(record.createdAt)}</td>
@@ -644,7 +663,6 @@ function renderPozoDetail() {
       <td data-label="Amp">${amp.toFixed(2)}</td>
       <td data-label="Torque">${torque.toFixed(2)}</td>
       <td data-label="HP">${hp.toFixed(2)}</td>
-      <td data-label="Tendencia" class="${cls}">${arrow}</td>
     `;
     parametrosTableBody.prepend(row);
   });
@@ -664,12 +682,7 @@ function renderPozoDetail() {
     nivelesTableBody.prepend(row);
   });
 
-  const latestParam = parametros[0] || {};
   const latestNivel = niveles[0] || {};
-  document.getElementById("cmpHp").textContent = Number(latestParam.potenciaHp || latestParam.hp_calculado || 0).toFixed(2);
-  document.getElementById("cmpTorque").textContent = Number(latestParam.torqueAplicadoNm || latestParam.torque || 0).toFixed(2);
-  document.getElementById("cmpNivel").textContent = Number(latestNivel.ft || 0).toFixed(2);
-  document.getElementById("cmpPip").textContent = Number(latestNivel.pip || 0).toFixed(2);
 
   const latestPdfUrl = latestNivel.reportePdfUrl || latestNivel.reporte_pdf_url || "";
   if (latestPdfUrl) {
@@ -680,7 +693,7 @@ function renderPozoDetail() {
     pdfViewer.src = "/assets/sample-diagrama.pdf";
   }
 
-  renderPozoTrendChart(parametros, niveles);
+  renderInteractiveTrendCharts(allParametros, allNiveles);
 
   renderHistoryBodies(allParametros, allNiveles);
 }
@@ -696,11 +709,35 @@ function renderFichaGeneralData(well) {
   fichaFields.estado.textContent = estado;
   fichaFields.cabezal.textContent = firstNonEmpty(row.cabezal, row.cabezal_tipo, "N/A");
   fichaFields.variador.textContent = firstNonEmpty(row.variador, row.variador_modelo, "N/A");
+  fichaFields.arena.textContent = firstNonEmpty(row.arena, row.sand, "N/A");
+  fichaFields.fechaArranque.textContent = firstNonEmpty(row.fecha_arranque, row.start_date, "N/A");
+  fichaFields.velocidadRpm.textContent = firstNonEmpty(
+    row.velocidad_operacional_rpm,
+    row.velocidad_rpm,
+    row.rpm,
+    "N/A"
+  );
   fichaFields.potencial.textContent = Number(row.potencial || 0).toFixed(2);
 
   fichaFields.bombaMarca.textContent = firstNonEmpty(row.bomba_marca, row.marca_bomba, "N/A");
+  fichaFields.bombaModelo.textContent = firstNonEmpty(row.bomba_modelo, row.modelo_bomba, "N/A");
   fichaFields.bombaCaudal.textContent = firstNonEmpty(row.bomba_caudal, row.caudal_bomba, "N/A");
   fichaFields.bombaTvu.textContent = firstNonEmpty(row.bomba_tvu, row.tvu, "N/A");
+
+  fichaFields.surveyTipo.textContent = firstNonEmpty(row.survey_tipo, row.tipo_survey, row.survey_type, "N/A");
+  fichaFields.surveyFecha.textContent = firstNonEmpty(row.survey_fecha, row.fecha_survey, row.survey_date, "N/A");
+  fichaFields.surveyProfundidad.textContent = firstNonEmpty(
+    row.survey_profundidad,
+    row.profundidad_survey,
+    row.survey_depth,
+    "N/A"
+  );
+  fichaFields.surveyObservaciones.textContent = firstNonEmpty(
+    row.survey_observaciones,
+    row.observaciones_survey,
+    row.survey_notes,
+    "N/A"
+  );
 
   fichaFields.compDiagrama.textContent = firstNonEmpty(row.diagrama_mecanico, "Disponible en visor");
   fichaFields.compNumTuberias.textContent = firstNonEmpty(row.num_tuberias, "N/A");
@@ -852,10 +889,18 @@ function exportFichaTecnicaPdf() {
     ["Estado", firstNonEmpty(well.estado, "N/A")],
     ["Cabezal", firstNonEmpty(well.cabezal, well.cabezal_tipo, "N/A")],
     ["Variador", firstNonEmpty(well.variador, well.variador_modelo, "N/A")],
+    ["Arena", firstNonEmpty(well.arena, well.sand, "N/A")],
+    ["Fecha Arranque", firstNonEmpty(well.fecha_arranque, well.start_date, "N/A")],
+    ["Velocidad Operacional (RPM)", firstNonEmpty(well.velocidad_operacional_rpm, well.velocidad_rpm, well.rpm, "N/A")],
     ["Potencial", Number(well.potencial || 0).toFixed(2)],
     ["Bomba Marca", firstNonEmpty(well.bomba_marca, well.marca_bomba, "N/A")],
+    ["Bomba Modelo", firstNonEmpty(well.bomba_modelo, well.modelo_bomba, "N/A")],
     ["Bomba Caudal", firstNonEmpty(well.bomba_caudal, well.caudal_bomba, "N/A")],
     ["Bomba TVU", firstNonEmpty(well.bomba_tvu, well.tvu, "N/A")],
+    ["Survey Tipo", firstNonEmpty(well.survey_tipo, well.tipo_survey, well.survey_type, "N/A")],
+    ["Survey Fecha", firstNonEmpty(well.survey_fecha, well.fecha_survey, well.survey_date, "N/A")],
+    ["Survey Profundidad", firstNonEmpty(well.survey_profundidad, well.profundidad_survey, well.survey_depth, "N/A")],
+    ["Survey Observaciones", firstNonEmpty(well.survey_observaciones, well.observaciones_survey, well.survey_notes, "N/A")],
     ["Num. Tuberias", firstNonEmpty(well.num_tuberias, "N/A")],
     ["Diam. Tuberias", firstNonEmpty(well.diametro_tuberias, "N/A")],
     ["Num. Cabillas", firstNonEmpty(well.num_cabillas, "N/A")],
@@ -969,6 +1014,24 @@ function openWellEdit(pozoId) {
   wellEditForm.estado.value = pozo.estado || "En observacion";
   wellEditForm.area.value = pozo.area || "N/A";
   wellEditForm.potencial.value = Number(pozo.potencial || 0);
+  wellEditForm.arena.value = firstNonEmpty(pozo.arena, pozo.sand, "");
+  wellEditForm.fecha_arranque.value = firstNonEmpty(pozo.fecha_arranque, pozo.start_date, "");
+  wellEditForm.velocidad_operacional_rpm.value = Number(
+    firstNonEmpty(pozo.velocidad_operacional_rpm, pozo.velocidad_rpm, pozo.rpm, 0)
+  );
+  wellEditForm.bomba_marca.value = firstNonEmpty(pozo.bomba_marca, pozo.marca_bomba, "");
+  wellEditForm.bomba_modelo.value = firstNonEmpty(pozo.bomba_modelo, pozo.modelo_bomba, "");
+  wellEditForm.bomba_caudal.value = firstNonEmpty(pozo.bomba_caudal, pozo.caudal_bomba, "");
+  wellEditForm.bomba_tvu.value = firstNonEmpty(pozo.bomba_tvu, pozo.tvu, "");
+  wellEditForm.survey_tipo.value = firstNonEmpty(pozo.survey_tipo, pozo.tipo_survey, pozo.survey_type, "");
+  wellEditForm.survey_fecha.value = firstNonEmpty(pozo.survey_fecha, pozo.fecha_survey, pozo.survey_date, "");
+  wellEditForm.survey_profundidad.value = firstNonEmpty(pozo.survey_profundidad, pozo.profundidad_survey, pozo.survey_depth, "");
+  wellEditForm.survey_observaciones.value = firstNonEmpty(
+    pozo.survey_observaciones,
+    pozo.observaciones_survey,
+    pozo.survey_notes,
+    ""
+  );
   wellEditDialog.showModal();
 }
 
@@ -1168,32 +1231,152 @@ function renderGeneralTrendChart() {
   });
 }
 
-function renderPozoTrendChart(parametros, niveles) {
+function renderInteractiveTrendCharts(parametros, niveles) {
   if (!window.Chart) {
     return;
   }
 
-  const p = parametros.slice(0, 10).reverse();
-  const n = niveles.slice(0, 10).reverse();
-  const labels = p.length ? p.map((item) => shortDate(item.createdAt)) : n.map((item) => shortDate(item.createdAt));
+  const parametroMetric = parametrosTrendMetricSelect?.value || "frecuencia";
+  const nivelMetric = nivelesTrendMetricSelect?.value || "ft";
 
-  const ctx = document.getElementById("pozoTrendChart");
-  state.charts.pozo?.destroy();
-  state.charts.pozo = new window.Chart(ctx, {
+  const parametroCfg = getParametroMetricConfig(parametroMetric);
+  const nivelCfg = getNivelMetricConfig(nivelMetric);
+
+  const parametroSeries = buildTimeSeries(parametros, parametroCfg.extractor);
+  const nivelSeries = buildTimeSeries(niveles, nivelCfg.extractor);
+
+  const parametrosCtx = document.getElementById("parametrosTrendChart");
+  state.charts.parametrosTrend?.destroy();
+  state.charts.parametrosTrend = new window.Chart(parametrosCtx, {
+    type: "line",
     data: {
-      labels,
+      labels: parametroSeries.labels,
       datasets: [
-        { type: "line", label: "HP", data: p.map((x) => Number(x.potenciaHp || x.hp_calculado || 0)), borderColor: "#3041ff", yAxisID: "y" },
-        { type: "bar", label: "Nivel ft", data: n.map((x) => Number(x.ft || 0)), backgroundColor: "rgba(27,191,131,0.45)", yAxisID: "y1" }
+        {
+          label: parametroCfg.label,
+          data: parametroSeries.values,
+          borderColor: "#3041ff",
+          backgroundColor: "rgba(48,65,255,0.18)",
+          pointRadius: 4,
+          pointHoverRadius: 6,
+          tension: 0.25,
+          fill: false
+        }
       ]
     },
     options: {
+      responsive: true,
+      interaction: { mode: "index", intersect: false },
+      plugins: {
+        legend: { display: true }
+      },
       scales: {
-        y: { position: "left" },
-        y1: { position: "right", grid: { drawOnChartArea: false } }
+        y: {
+          title: {
+            display: true,
+            text: parametroCfg.label
+          }
+        }
       }
     }
   });
+
+  const nivelesCtx = document.getElementById("nivelesTrendChart");
+  state.charts.nivelesTrend?.destroy();
+  state.charts.nivelesTrend = new window.Chart(nivelesCtx, {
+    type: "line",
+    data: {
+      labels: nivelSeries.labels,
+      datasets: [
+        {
+          label: nivelCfg.label,
+          data: nivelSeries.values,
+          borderColor: "#1bbf83",
+          backgroundColor: "rgba(27,191,131,0.16)",
+          pointRadius: 4,
+          pointHoverRadius: 6,
+          tension: 0.25,
+          fill: false
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      interaction: { mode: "index", intersect: false },
+      plugins: {
+        legend: { display: true }
+      },
+      scales: {
+        y: {
+          title: {
+            display: true,
+            text: nivelCfg.label
+          }
+        }
+      }
+    }
+  });
+}
+
+function getParametroMetricConfig(metric) {
+  const map = {
+    frecuencia: {
+      label: "Frecuencia (Hz)",
+      extractor: (row) => Number(row.frecuencia || 0)
+    },
+    torqueAplicadoNm: {
+      label: "Torque (Nm)",
+      extractor: (row) => Number(row.torqueAplicadoNm || row.torque || row.torqueManual || 0)
+    },
+    amperaje: {
+      label: "Amperaje (A)",
+      extractor: (row) => Number(row.amperaje || 0)
+    },
+    potenciaHp: {
+      label: "Potencia (HP)",
+      extractor: (row) => Number(row.potenciaHp || row.hp_calculado || 0)
+    },
+    voltaje: {
+      label: "Voltaje (V)",
+      extractor: (row) => Number(row.voltaje || 0)
+    }
+  };
+
+  return map[metric] || map.frecuencia;
+}
+
+function getNivelMetricConfig(metric) {
+  const map = {
+    ft: {
+      label: "Nivel (ft)",
+      extractor: (row) => Number(row.ft || 0)
+    },
+    porcentaje: {
+      label: "Porcentaje (%)",
+      extractor: (row) => Number(row.porcentaje || 0)
+    },
+    pip: {
+      label: "PIP",
+      extractor: (row) => Number(row.pip || 0)
+    },
+    pbhp: {
+      label: "PBHP",
+      extractor: (row) => Number(row.pbhp || 0)
+    }
+  };
+
+  return map[metric] || map.ft;
+}
+
+function buildTimeSeries(rows, extractor) {
+  const ordered = rows
+    .slice()
+    .sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
+
+  return {
+    labels: ordered.map((item) => shortDateTime(item.createdAt)),
+    values: ordered.map((item) => extractor(item))
+  };
 }
 
 function hydrateLocalState(records) {
@@ -1279,6 +1462,10 @@ function formatDate(value) {
 
 function shortDate(value) {
   return new Date(value || Date.now()).toLocaleDateString();
+}
+
+function shortDateTime(value) {
+  return new Date(value || Date.now()).toLocaleString();
 }
 
 function escapeHtml(value) {

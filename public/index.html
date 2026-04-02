@@ -181,6 +181,9 @@
                   <div><dt>Estado</dt><dd id="fgEstado">N/A</dd></div>
                   <div><dt>Cabezal</dt><dd id="fgCabezal">N/A</dd></div>
                   <div><dt>Variador</dt><dd id="fgVariador">N/A</dd></div>
+                  <div><dt>Arena</dt><dd id="fgArena">N/A</dd></div>
+                  <div><dt>Fecha de Arranque</dt><dd id="fgFechaArranque">N/A</dd></div>
+                  <div><dt>Velocidad Operacional (RPM)</dt><dd id="fgVelocidadRpm">N/A</dd></div>
                   <div><dt>Potencial</dt><dd id="fgPotencial">0.00</dd></div>
                 </dl>
               </article>
@@ -189,6 +192,7 @@
                 <h3>Datos de Bomba</h3>
                 <dl class="kv-list" id="pozoBombaData">
                   <div><dt>Marca</dt><dd id="fbMarca">N/A</dd></div>
+                  <div><dt>Modelo</dt><dd id="fbModelo">N/A</dd></div>
                   <div><dt>Caudal</dt><dd id="fbCaudal">N/A</dd></div>
                   <div><dt>TVU</dt><dd id="fbTvu">N/A</dd></div>
                 </dl>
@@ -205,19 +209,15 @@
                   <div><dt>Longitud Cabillas</dt><dd id="fcLongCabillas">N/A</dd></div>
                 </dl>
               </article>
-            </div>
 
-            <div class="chart-grid">
               <article class="card">
-                <h3>Tendencia por Pozo: Parametros vs Nivel</h3>
-                <canvas id="pozoTrendChart" height="120"></canvas>
-              </article>
-              <article class="card comparison-card">
-                <h3>Comparacion Rapida</h3>
-                <p>Ultimo HP: <strong id="cmpHp">0.00</strong></p>
-                <p>Ultimo Torque: <strong id="cmpTorque">0.00</strong></p>
-                <p>Ultimo Nivel (ft): <strong id="cmpNivel">0.00</strong></p>
-                <p>Ultimo PIP: <strong id="cmpPip">0.00</strong></p>
+                <h3>Survey</h3>
+                <dl class="kv-list" id="pozoSurveyData">
+                  <div><dt>Tipo</dt><dd id="fsTipo">N/A</dd></div>
+                  <div><dt>Fecha</dt><dd id="fsFecha">N/A</dd></div>
+                  <div><dt>Profundidad</dt><dd id="fsProfundidad">N/A</dd></div>
+                  <div><dt>Observaciones</dt><dd id="fsObservaciones">N/A</dd></div>
+                </dl>
               </article>
             </div>
 
@@ -243,7 +243,6 @@
                         <th>Amp</th>
                         <th>Torque</th>
                         <th>HP</th>
-                        <th>Tendencia</th>
                       </tr>
                     </thead>
                     <tbody id="parametrosTableBody"></tbody>
@@ -252,6 +251,22 @@
                 <div class="table-actions">
                   <button id="exportExcelBtn" class="btn-secondary" type="button">Exportar Ultimos a Excel</button>
                   <button id="openParametrosHistoryBtn" class="btn-secondary" type="button">Ver Historial Completo</button>
+                </div>
+
+                <div class="trend-panel">
+                  <div class="trend-panel-head">
+                    <h4>Tendencia de Parametros</h4>
+                    <label>Variable
+                      <select id="parametrosTrendMetric">
+                        <option value="frecuencia">Hz</option>
+                        <option value="torqueAplicadoNm">Torque</option>
+                        <option value="amperaje">Amperaje</option>
+                        <option value="potenciaHp">HP</option>
+                        <option value="voltaje">Voltaje</option>
+                      </select>
+                    </label>
+                  </div>
+                  <canvas id="parametrosTrendChart" height="120"></canvas>
                 </div>
 
                 <h3 class="sub-table-title">Últimas Tomas de Nivel</h3>
@@ -272,6 +287,21 @@
                 </div>
                 <div class="table-actions">
                   <button id="openNivelesHistoryBtn" class="btn-secondary" type="button">Ver Historial Completo</button>
+                </div>
+
+                <div class="trend-panel">
+                  <div class="trend-panel-head">
+                    <h4>Tendencia de Toma de Nivel</h4>
+                    <label>Variable
+                      <select id="nivelesTrendMetric">
+                        <option value="ft">Nivel (ft)</option>
+                        <option value="porcentaje">Porcentaje (%)</option>
+                        <option value="pip">PIP</option>
+                        <option value="pbhp">PBHP</option>
+                      </select>
+                    </label>
+                  </div>
+                  <canvas id="nivelesTrendChart" height="120"></canvas>
                 </div>
 
                 <h3 class="sub-table-title">Ultimo PDF de Toma de Nivel</h3>
@@ -321,6 +351,17 @@
           </select>
         </label>
         <label>Potencial<input type="number" step="0.01" name="potencial" /></label>
+        <label>Arena<input type="text" name="arena" /></label>
+        <label>Fecha de Arranque<input type="date" name="fecha_arranque" /></label>
+        <label>Velocidad Operacional (RPM)<input type="number" step="1" name="velocidad_operacional_rpm" /></label>
+        <label>Marca Bomba<input type="text" name="bomba_marca" /></label>
+        <label>Modelo Bomba<input type="text" name="bomba_modelo" /></label>
+        <label>Caudal Bomba<input type="text" name="bomba_caudal" /></label>
+        <label>TVU Bomba<input type="text" name="bomba_tvu" /></label>
+        <label>Survey Tipo<input type="text" name="survey_tipo" /></label>
+        <label>Survey Fecha<input type="date" name="survey_fecha" /></label>
+        <label>Survey Profundidad<input type="text" name="survey_profundidad" /></label>
+        <label>Survey Observaciones<input type="text" name="survey_observaciones" /></label>
         <div class="table-actions">
           <button type="button" id="cancelWellEdit" class="btn-secondary">Cancelar</button>
           <button type="submit" class="btn-primary">Guardar Cambios</button>
