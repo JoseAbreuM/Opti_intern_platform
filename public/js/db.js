@@ -60,6 +60,8 @@ export async function cachePozoHistory(pozoId, history = {}) {
     pozoId: id,
     parametros: Array.isArray(history.parametros) ? history.parametros : [],
     niveles: Array.isArray(history.niveles) ? history.niveles : [],
+    bombas: Array.isArray(history.bombas) ? history.bombas : [],
+    pdt: Array.isArray(history.pdt) ? history.pdt : [],
     syncedAt: history.syncedAt || new Date().toISOString()
   };
 

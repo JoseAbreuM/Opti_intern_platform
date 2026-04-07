@@ -1,4 +1,4 @@
-const CACHE_VERSION = "opti-ams-v11";
+const CACHE_VERSION = "opti-ams-v12";
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 const PDF_CACHE = `${CACHE_VERSION}-pdfs`;
@@ -16,6 +16,8 @@ const STATIC_ASSETS = [
   "/assets/icono.png",
   "/assets/header.png",
   "/assets/sample-diagrama.pdf",
+  "/xls/bombas_pozos.xlsx",
+  "/xls/pozos_actuales.xlsx",
   "/vendor/localforage.min.js",
   "/vendor/xlsx.full.min.js",
   "/vendor/chart.umd.min.js",

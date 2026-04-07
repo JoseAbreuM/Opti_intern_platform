@@ -12,7 +12,35 @@
     <link rel="stylesheet" href="/vendor/responsive.dataTables.min.css" />
   </head>
   <body>
-    <div class="app-shell">
+    <section id="authScreen" class="auth-shell">
+      <div class="auth-layout">
+        <article class="auth-panel auth-panel-brand">
+          <div class="brand-row auth-brand-row">
+            <img src="/assets/icono.png" alt="Logo" class="brand-logo" />
+            <div>
+              <h1>Opti AMS</h1>
+              <p>Control de acceso, sesion offline y permisos por rol.</p>
+            </div>
+          </div>
+          <h2>Ingreso a Plataforma</h2>
+          <p class="hint">Debes iniciar sesion antes de acceder al resto del sistema. Si ya iniciaste sesion al menos una vez, la sesion y los accesos cacheados pueden reutilizarse offline.</p>
+        </article>
+
+        <article class="auth-panel">
+          <form id="loginForm" class="form-grid auth-form">
+            <label>Usuario<input id="loginUsername" type="text" name="username" autocomplete="username" required /></label>
+            <label>Clave<input id="loginPassword" type="password" name="password" autocomplete="current-password" required /></label>
+            <p id="loginStatus" class="hint auth-status">Ingresa tus credenciales para continuar.</p>
+            <div class="table-actions auth-actions">
+              <button type="submit" class="btn-primary">Iniciar Sesion</button>
+              <button id="openBootstrapAuthBtn" type="button" class="btn-secondary">Configurar Acceso Inicial</button>
+            </div>
+          </form>
+        </article>
+      </div>
+    </section>
+
+    <div id="platformShell" class="app-shell" hidden>
       <aside class="sidebar" id="sidebar">
         <div class="brand-row">
           <img src="/assets/icono.png" alt="Logo" class="brand-logo" />
@@ -28,6 +56,9 @@
           </button>
           <button class="nav-item" data-view="pozos">
             <i data-lucide="table-properties"></i><span>Pozos</span>
+          </button>
+          <button class="nav-item" data-view="bombas">
+            <i data-lucide="gauge"></i><span>Bombas</span>
           </button>
           <button class="nav-item" data-view="carga">
             <i data-lucide="sliders-horizontal"></i><span>Carga Param.</span>
@@ -46,6 +77,9 @@
           </button>
           <div class="status-wrap">
             <button id="installAppBtn" class="btn-secondary install-btn" type="button" hidden>Instalar App</button>
+            <span id="authRoleBadge" class="badge" hidden>Rol</span>
+            <span id="authUserBadge" class="badge" hidden>Usuario</span>
+            <button id="logoutBtn" class="btn-secondary install-btn" type="button" hidden>Cerrar Sesion</button>
             <span id="connectionBadge" class="badge offline">Offline</span>
             <span id="syncBadge" class="badge">Sincronización pendiente</span>
           </div>
@@ -93,12 +127,7 @@
           <article class="card">
             <div class="table-head">
               <h2>Tabla Inteligente de Pozos</h2>
-              <div class="table-actions">
-                <label class="btn-secondary file-like">
-                  Importar Historico Excel
-                  <input id="historicoFileInput" type="file" accept=".xlsx,.xls" hidden />
-                </label>
-              </div>
+              <input id="historicoFileInput" type="file" accept=".xlsx,.xls" hidden />
             </div>
 
             <div class="table-wrap">
@@ -118,6 +147,57 @@
             </div>
 
             <p class="hint">La tabla usa busqueda global inteligente, paginacion, exportacion (Excel/Word/PDF/Impresion) y selector de columnas.</p>
+            <p class="hint">La carga base de XLS se ejecuta automaticamente al iniciar.</p>
+          </article>
+        </section>
+
+        <section id="view-bombas" class="view">
+          <div class="kpi-grid">
+            <article class="card kpi">
+              <h3>Registros Bomba</h3>
+              <strong id="kpiBombasTotal">0</strong>
+            </article>
+            <article class="card kpi">
+              <h3>Pozos con Bomba</h3>
+              <strong id="kpiBombasPozos">0</strong>
+            </article>
+            <article class="card kpi">
+              <h3>TVU Promedio</h3>
+              <strong id="kpiBombasTvu">0.0</strong>
+            </article>
+          </div>
+
+          <div class="chart-grid">
+            <article class="card">
+              <h3>Distribucion por Marca</h3>
+              <canvas id="bombasMarcaChart" height="120"></canvas>
+            </article>
+              <article class="card">
+                <h3>TVU Promedio por Marca</h3>
+                <canvas id="bombasTvuChart" height="120"></canvas>
+              </article>
+          </div>
+
+          <article class="card">
+            <div class="table-head">
+              <h2>Modulo de Bombas</h2>
+            </div>
+            <div class="table-wrap">
+              <table id="bombasTable">
+                <thead>
+                  <tr>
+                    <th>Pozo</th>
+                    <th>Marca</th>
+                    <th>Modelo</th>
+                    <th>Fecha Instalacion</th>
+                    <th>TVU (dias)</th>
+                    <th>Observaciones</th>
+                  </tr>
+                </thead>
+                <tbody id="bombasTableBody"></tbody>
+              </table>
+            </div>
+            <p class="hint">Vista inicial del modulo de bombas para seguimiento de instalaciones y base de analitica.</p>
           </article>
         </section>
 
@@ -183,14 +263,19 @@
 
             <div class="ficha-tech-grid">
               <article class="card">
-                <h3>Ficha General del Pozo</h3>
+                <div class="table-head compact-head">
+                  <h3>Ficha General del Pozo</h3>
+                  <div class="table-actions">
+                    <button id="editGeneralCardBtn" class="btn-secondary" type="button">Editar</button>
+                  </div>
+                </div>
                 <dl class="kv-list" id="pozoGeneralData">
                   <div><dt>ID</dt><dd id="fgPozoId">N/A</dd></div>
                   <div><dt>Zona</dt><dd id="fgZona">N/A</dd></div>
                   <div><dt>Estado</dt><dd id="fgEstado">N/A</dd></div>
                   <div id="fgCabezalRow"><dt>Cabezal</dt><dd id="fgCabezal">N/A</dd></div>
                   <div id="fgVariadorRow"><dt>Variador</dt><dd id="fgVariador">N/A</dd></div>
-                  <div><dt>Arena</dt><dd id="fgArena">N/A</dd></div>
+                  <div><dt>Yacimiento</dt><dd id="fgYacimiento">N/A</dd></div>
                   <div><dt>Fecha de Arranque</dt><dd id="fgFechaArranque">N/A</dd></div>
                   <div><dt>Velocidad Operacional (RPM)</dt><dd id="fgVelocidadRpm">N/A</dd></div>
                   <div><dt>Potencial</dt><dd id="fgPotencial">0.00</dd></div>
@@ -198,17 +283,48 @@
               </article>
 
               <article id="pozoBombaCard" class="card">
-                <h3>Datos de Bomba</h3>
+                <div class="table-head compact-head">
+                  <h3>Datos de Bomba</h3>
+                  <div class="table-actions">
+                    <button id="addBombaRecordBtn" class="btn-secondary" type="button">Agregar Registro</button>
+                    <button id="editBombaCardBtn" class="btn-secondary" type="button">Editar Ultimo</button>
+                    <button id="openBombasHistoryBtn" class="btn-secondary" type="button">Historico de Bombas</button>
+                  </div>
+                </div>
                 <dl class="kv-list" id="pozoBombaData">
                   <div><dt>Marca</dt><dd id="fbMarca">N/A</dd></div>
                   <div><dt>Modelo</dt><dd id="fbModelo">N/A</dd></div>
+                  <div><dt>Fecha Instalacion</dt><dd id="fbFechaInstalacion">N/A</dd></div>
                   <div><dt>Caudal</dt><dd id="fbCaudal">N/A</dd></div>
                   <div><dt>TVU</dt><dd id="fbTvu">N/A</dd></div>
+                  <div><dt>Observaciones</dt><dd id="fbObservaciones">N/A</dd></div>
+                </dl>
+              </article>
+
+              <article id="pozoPdtCard" class="card">
+                <div class="table-head compact-head">
+                  <h3>Datos PDT</h3>
+                  <div class="table-actions">
+                    <button id="addPdtRecordBtn" class="btn-secondary" type="button">Agregar Registro</button>
+                    <button id="editPdtCardBtn" class="btn-secondary" type="button">Editar Ultimo</button>
+                    <button id="openPdtHistoryBtn" class="btn-secondary" type="button">Historico PDT</button>
+                  </div>
+                </div>
+                <dl class="kv-list" id="pozoPdtData">
+                  <div><dt>Ultima Prueba</dt><dd id="fpdtFechaPrueba">N/A</dd></div>
+                  <div><dt>Volumetria</dt><dd id="fpdtVolumetria">N/A</dd></div>
+                  <div><dt>AyS</dt><dd id="fpdtAys">N/A</dd></div>
+                  <div><dt>Causa Diferido</dt><dd id="fpdtCausaDiferido">N/A</dd></div>
                 </dl>
               </article>
 
               <article class="card">
-                <h3>Datos de Completacion</h3>
+                <div class="table-head compact-head">
+                  <h3>Datos de Completacion</h3>
+                  <div class="table-actions">
+                    <button id="editCompletacionCardBtn" class="btn-secondary" type="button">Editar</button>
+                  </div>
+                </div>
                 <dl class="kv-list" id="pozoCompletacionData">
                   <div><dt>Diagrama Mecanico</dt><dd id="fcDiagrama">N/A</dd></div>
                   <div><dt>Numero de Tuberias</dt><dd id="fcNumTuberias">N/A</dd></div>
@@ -220,7 +336,12 @@
               </article>
 
               <article class="card">
-                <h3>Survey</h3>
+                <div class="table-head compact-head">
+                  <h3>Survey</h3>
+                  <div class="table-actions">
+                    <button id="editSurveyCardBtn" class="btn-secondary" type="button">Editar</button>
+                  </div>
+                </div>
                 <dl class="kv-list" id="pozoSurveyData">
                   <div><dt>Tipo</dt><dd id="fsTipo">N/A</dd></div>
                   <div><dt>Fecha</dt><dd id="fsFecha">N/A</dd></div>
@@ -327,6 +448,7 @@
       <nav class="bottom-nav" id="bottomNav">
         <button class="nav-item is-active" data-view="dashboard"><i data-lucide="layout-dashboard"></i></button>
         <button class="nav-item" data-view="pozos"><i data-lucide="table-properties"></i></button>
+        <button class="nav-item" data-view="bombas"><i data-lucide="gauge"></i></button>
         <button class="nav-item" data-view="carga"><i data-lucide="sliders-horizontal"></i></button>
         <button class="nav-item" data-view="nivel"><i data-lucide="ruler"></i></button>
       </nav>
@@ -338,6 +460,26 @@
         </div>
       </div>
     </div>
+
+    <dialog id="authBootstrapDialog" class="edit-dialog">
+      <form id="authBootstrapForm" method="dialog" class="form-grid">
+        <h3>Configurar Acceso Inicial</h3>
+        <label>Nombre de Usuario<input type="text" name="username" autocomplete="username" required /></label>
+        <label>Nombre Visible<input type="text" name="displayName" required /></label>
+        <label>Clave<input type="password" name="password" autocomplete="new-password" required /></label>
+        <label>Confirmar Clave<input type="password" name="confirmPassword" autocomplete="new-password" required /></label>
+        <label>Rol
+          <select name="role">
+            <option value="optimizacion">optimizacion</option>
+          </select>
+        </label>
+        <p id="authBootstrapStatus" class="hint">Esto crea el primer acceso con control total y lo deja cacheado para uso offline.</p>
+        <div class="table-actions">
+          <button type="button" id="cancelBootstrapAuth" class="btn-secondary">Cancelar</button>
+          <button type="submit" class="btn-primary">Crear Acceso</button>
+        </div>
+      </form>
+    </dialog>
 
     <dialog id="wellEditDialog" class="edit-dialog">
       <form id="wellEditForm" method="dialog" class="form-grid">
@@ -370,7 +512,7 @@
           </select>
         </label>
         <label>Potencial<input type="number" step="0.01" name="potencial" /></label>
-        <label>Arena<input type="text" name="arena" /></label>
+        <label>Yacimiento<input type="text" name="yacimiento" /></label>
         <label>Fecha de Arranque<input type="date" name="fecha_arranque" /></label>
         <label>Velocidad Operacional (RPM)<input type="number" step="1" name="velocidad_operacional_rpm" /></label>
         <label>Marca Bomba<input type="text" name="bomba_marca" /></label>
@@ -404,6 +546,7 @@
                 <th>Frecuencia</th>
                 <th>Torque</th>
                 <th>HP</th>
+                <th>Acciones</th>
               </tr>
             </thead>
             <tbody id="parametrosHistoryBody"></tbody>
@@ -428,10 +571,72 @@
                 <th>PIP</th>
                 <th>PBHP</th>
                 <th>PDF</th>
+                <th>Acciones</th>
               </tr>
             </thead>
             <tbody id="nivelesHistoryBody"></tbody>
           </table>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="bombasHistoryDialog" class="edit-dialog">
+      <form method="dialog" class="history-dialog-form">
+        <div class="table-head">
+          <h3>Historico de Bombas</h3>
+          <button id="closeBombasHistoryBtn" type="submit" class="btn-secondary">Cerrar</button>
+        </div>
+        <div class="table-wrap">
+          <table id="bombasHistoryTable" class="display" style="width:100%">
+            <thead>
+              <tr>
+                <th>Fecha Instalacion</th>
+                <th>Marca</th>
+                <th>Modelo</th>
+                <th>TVU (dias)</th>
+                <th>Observaciones</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="bombasHistoryBody"></tbody>
+          </table>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="pdtHistoryDialog" class="edit-dialog">
+      <form method="dialog" class="history-dialog-form">
+        <div class="table-head">
+          <h3>Historico PDT</h3>
+          <button id="closePdtHistoryBtn" type="submit" class="btn-secondary">Cerrar</button>
+        </div>
+        <div class="table-wrap">
+          <table id="pdtHistoryTable" class="display" style="width:100%">
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Yacimiento</th>
+                <th>Volumetria</th>
+                <th>AyS</th>
+                <th>Causa Diferido</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="pdtHistoryBody"></tbody>
+          </table>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="cardEditDialog" class="edit-dialog">
+      <form id="cardEditForm" method="dialog" class="form-grid">
+        <h3 id="cardEditTitle">Editar Tarjeta</h3>
+        <input type="hidden" name="type" />
+        <input type="hidden" name="pozoId" />
+        <div id="cardEditFields" class="form-grid" style="grid-column: 1 / -1;"></div>
+        <div class="table-actions">
+          <button type="button" id="cancelCardEdit" class="btn-secondary">Cancelar</button>
+          <button type="submit" class="btn-primary">Guardar</button>
         </div>
       </form>
     </dialog>

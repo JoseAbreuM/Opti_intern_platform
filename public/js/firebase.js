@@ -35,6 +35,70 @@ export function isFirebaseReady() {
   return Boolean(db);
 }
 
+export async function fetchAccessProfiles(maxRows = 100) {
+  if (!db) {
+    return [];
+  }
+
+  const collections = ["usuarios_app", "usuarios", "app_users", "access_profiles"];
+  for (const collectionName of collections) {
+    try {
+      const snapshot = await db.collection(collectionName).limit(maxRows).get();
+      if (snapshot.empty) {
+        continue;
+      }
+
+      return snapshot.docs
+        .map((doc) => {
+          const data = doc.data() || {};
+          return {
+            id: doc.id,
+            username: firstNonEmpty(data.username, data.usuario, data.user, doc.id),
+            displayName: firstNonEmpty(data.displayName, data.nombre, data.name, data.username, doc.id),
+            role: firstNonEmpty(data.role, data.rol, "consulta"),
+            passwordHash: firstNonEmpty(data.password_hash, data.passwordHash, data.token_hash, data.tokenHash, data.offline_token_hash),
+            password: firstNonEmpty(data.password),
+            active: data.active !== false,
+            permissions: Array.isArray(data.permissions) ? data.permissions : [],
+            views: Array.isArray(data.views) ? data.views : []
+          };
+        })
+        .filter((item) => item.username);
+    } catch (error) {
+      // Probar siguiente colección.
+    }
+  }
+
+  return [];
+}
+
+export async function saveAccessProfile(profile = {}) {
+  if (!db) {
+    throw new Error("Firebase no configurado");
+  }
+
+  const username = String(profile.username || "").trim().toLowerCase();
+  if (!username) {
+    throw new Error("username requerido");
+  }
+
+  const serverTs = window.firebase.firestore.FieldValue.serverTimestamp();
+  await db.collection("usuarios_app").doc(username).set(
+    {
+      username,
+      displayName: String(profile.displayName || username).trim(),
+      role: String(profile.role || "consulta").trim().toLowerCase(),
+      password_hash: String(profile.passwordHash || profile.password_hash || "").trim(),
+      active: profile.active !== false,
+      permissions: Array.isArray(profile.permissions) ? profile.permissions : [],
+      views: Array.isArray(profile.views) ? profile.views : [],
+      updatedAt: serverTs,
+      createdByApp: "opti-intern-platform"
+    },
+    { merge: true }
+  );
+}
+
 export function normalizePozoId(rawValue) {
   const clean = String(rawValue || "").trim();
   return clean || "POZO-001";
@@ -146,22 +210,28 @@ export async function fetchPozos(maxRows = 250) {
             area: firstNonEmpty(row.area, row.zona, row.zone, "N/A"),
             zona: firstNonEmpty(row.zona, row.area, row.zone, "N/A"),
             estado,
-            potencial: toNumber(firstNonEmpty(row.potencial, row.potential, 0)),
+            potencial: toNumber(firstNonEmpty(row.potencial, row.potential, row.potencial_pozo, row.pot, 0)),
             categoria: toCategory(firstNonEmpty(row.categoria, row.category), estado),
             esDiferido: classif.esDiferido,
-            arena: firstNonEmpty(row.arena, row.sand, ""),
+            yacimiento: firstNonEmpty(row.yacimiento, row.arena, row.sand, ""),
             fecha_arranque: firstNonEmpty(row.fecha_arranque, row.start_date, ""),
             velocidad_operacional_rpm: firstNonEmpty(row.velocidad_operacional_rpm, row.velocidad_rpm, row.rpm, ""),
-            cabezal: firstNonEmpty(row.cabezal, row.cabezal_tipo, row.head, ""),
-            variador: firstNonEmpty(row.variador, row.variador_modelo, row.vfd, ""),
+            cabezal: firstNonEmpty(row.cabezal, row.cabezal_tipo, row.tipo_cabezal, row.head, ""),
+            variador: firstNonEmpty(row.variador, row.variador_modelo, row.modelo_variador, row.vfd, ""),
             bomba_marca: firstNonEmpty(row.bomba_marca, row.marca_bomba, row.pump_brand, ""),
             bomba_modelo: firstNonEmpty(row.bomba_modelo, row.modelo_bomba, row.pump_model, ""),
             bomba_caudal: firstNonEmpty(row.bomba_caudal, row.caudal_bomba, row.pump_flow, ""),
             bomba_tvu: firstNonEmpty(row.bomba_tvu, row.tvu, ""),
+            bomba_fecha_instalacion: firstNonEmpty(row.bomba_fecha_instalacion, row.fecha_instalacion_bomba, ""),
+            bomba_observaciones: firstNonEmpty(row.bomba_observaciones, row.observaciones_bomba, ""),
             survey_tipo: firstNonEmpty(row.survey_tipo, row.tipo_survey, row.survey_type, ""),
             survey_fecha: firstNonEmpty(row.survey_fecha, row.fecha_survey, row.survey_date, ""),
             survey_profundidad: firstNonEmpty(row.survey_profundidad, row.profundidad_survey, row.survey_depth, ""),
             survey_observaciones: firstNonEmpty(row.survey_observaciones, row.observaciones_survey, row.survey_notes, ""),
+            pdt_fecha_ultima_prueba: firstNonEmpty(row.pdt_fecha_ultima_prueba, row.fecha_ultima_prueba, ""),
+            pdt_volumetria: firstNonEmpty(row.pdt_volumetria, row.volumetria_monitoreo, ""),
+            pdt_ays: firstNonEmpty(row.pdt_ays, row.ays, ""),
+            pdt_causa_diferido: firstNonEmpty(row.pdt_causa_diferido, row.causa_diferido, row.motivo_diferido, ""),
             nota: firstNonEmpty(row.nota, row.note, ""),
             diagnostico: firstNonEmpty(row.diagnostico, row.diagnosis, row.nota_diagnostico, ""),
             motivo: firstNonEmpty(row.motivo, row.razon, row.reason, row.observaciones, ""),
@@ -204,22 +274,28 @@ export async function fetchPozos(maxRows = 250) {
             area: firstNonEmpty(data.area, data.zona, data.zone, "N/A"),
             zona: firstNonEmpty(data.zona, data.area, data.zone, "N/A"),
             estado,
-            potencial: toNumber(firstNonEmpty(data.potencial, data.potential, 0)),
+            potencial: toNumber(firstNonEmpty(data.potencial, data.potential, data.potencial_pozo, data.pot, 0)),
             categoria: toCategory(firstNonEmpty(data.categoria, data.category), estado),
             esDiferido: classif.esDiferido,
-            arena: firstNonEmpty(data.arena, data.sand, ""),
+            yacimiento: firstNonEmpty(data.yacimiento, data.arena, data.sand, ""),
             fecha_arranque: firstNonEmpty(data.fecha_arranque, data.start_date, ""),
             velocidad_operacional_rpm: firstNonEmpty(data.velocidad_operacional_rpm, data.velocidad_rpm, data.rpm, ""),
-            cabezal: firstNonEmpty(data.cabezal, data.cabezal_tipo, data.head, ""),
-            variador: firstNonEmpty(data.variador, data.variador_modelo, data.vfd, ""),
+            cabezal: firstNonEmpty(data.cabezal, data.cabezal_tipo, data.tipo_cabezal, data.head, ""),
+            variador: firstNonEmpty(data.variador, data.variador_modelo, data.modelo_variador, data.vfd, ""),
             bomba_marca: firstNonEmpty(data.bomba_marca, data.marca_bomba, data.pump_brand, ""),
             bomba_modelo: firstNonEmpty(data.bomba_modelo, data.modelo_bomba, data.pump_model, ""),
             bomba_caudal: firstNonEmpty(data.bomba_caudal, data.caudal_bomba, data.pump_flow, ""),
             bomba_tvu: firstNonEmpty(data.bomba_tvu, data.tvu, ""),
+            bomba_fecha_instalacion: firstNonEmpty(data.bomba_fecha_instalacion, data.fecha_instalacion_bomba, ""),
+            bomba_observaciones: firstNonEmpty(data.bomba_observaciones, data.observaciones_bomba, ""),
             survey_tipo: firstNonEmpty(data.survey_tipo, data.tipo_survey, data.survey_type, ""),
             survey_fecha: firstNonEmpty(data.survey_fecha, data.fecha_survey, data.survey_date, ""),
             survey_profundidad: firstNonEmpty(data.survey_profundidad, data.profundidad_survey, data.survey_depth, ""),
             survey_observaciones: firstNonEmpty(data.survey_observaciones, data.observaciones_survey, data.survey_notes, ""),
+            pdt_fecha_ultima_prueba: firstNonEmpty(data.pdt_fecha_ultima_prueba, data.fecha_ultima_prueba, ""),
+            pdt_volumetria: firstNonEmpty(data.pdt_volumetria, data.volumetria_monitoreo, ""),
+            pdt_ays: firstNonEmpty(data.pdt_ays, data.ays, ""),
+            pdt_causa_diferido: firstNonEmpty(data.pdt_causa_diferido, data.causa_diferido, data.motivo_diferido, ""),
             nota: firstNonEmpty(data.nota, data.note, ""),
             diagnostico: firstNonEmpty(data.diagnostico, data.diagnosis, data.nota_diagnostico, ""),
             motivo: firstNonEmpty(data.motivo, data.razon, data.reason, data.observaciones, ""),
@@ -257,7 +333,7 @@ export async function fetchPozos(maxRows = 250) {
           }
 
           const base = byId.get(key) || {};
-          const merged = { ...base, ...row };
+          const merged = mergeWellRows(base, row);
 
           // Para estado/categoria, priorizar el dataset agregado (mapa) cuando exista.
           if (base.estado) {
@@ -312,17 +388,23 @@ export async function updatePozoBaseData(pozoId, payload) {
       estado: estadoNormalizado,
       area: String(payload.area || "N/A").trim(),
       potencial: toNumber(payload.potencial),
-      arena: String(payload.arena || "").trim(),
+      yacimiento: String(payload.yacimiento || payload.arena || "").trim(),
       fecha_arranque: String(payload.fecha_arranque || "").trim(),
       velocidad_operacional_rpm: toNumber(payload.velocidad_operacional_rpm),
       bomba_marca: String(payload.bomba_marca || "").trim(),
       bomba_modelo: String(payload.bomba_modelo || "").trim(),
       bomba_caudal: String(payload.bomba_caudal || "").trim(),
       bomba_tvu: String(payload.bomba_tvu || "").trim(),
+      bomba_fecha_instalacion: String(payload.bomba_fecha_instalacion || "").trim(),
+      bomba_observaciones: String(payload.bomba_observaciones || "").trim(),
       survey_tipo: String(payload.survey_tipo || "").trim(),
       survey_fecha: String(payload.survey_fecha || "").trim(),
       survey_profundidad: String(payload.survey_profundidad || "").trim(),
       survey_observaciones: String(payload.survey_observaciones || "").trim(),
+      pdt_fecha_ultima_prueba: String(payload.pdt_fecha_ultima_prueba || "").trim(),
+      pdt_volumetria: String(payload.pdt_volumetria || "").trim(),
+      pdt_ays: String(payload.pdt_ays || "").trim(),
+      pdt_causa_diferido: String(payload.pdt_causa_diferido || "").trim(),
       updatedAt: serverTs,
       fuente_ultima_actualizacion: "opti-intern-platform"
     },
@@ -337,17 +419,23 @@ export async function updatePozoBaseData(pozoId, payload) {
     zona: String(payload.area || "N/A").trim(),
     area: String(payload.area || "N/A").trim(),
     potencial: String(toNumber(payload.potencial)),
-    arena: String(payload.arena || "").trim(),
+    yacimiento: String(payload.yacimiento || payload.arena || "").trim(),
     fecha_arranque: String(payload.fecha_arranque || "").trim(),
     velocidad_operacional_rpm: String(toNumber(payload.velocidad_operacional_rpm)),
     bomba_marca: String(payload.bomba_marca || "").trim(),
     bomba_modelo: String(payload.bomba_modelo || "").trim(),
     bomba_caudal: String(payload.bomba_caudal || "").trim(),
     bomba_tvu: String(payload.bomba_tvu || "").trim(),
+    bomba_fecha_instalacion: String(payload.bomba_fecha_instalacion || "").trim(),
+    bomba_observaciones: String(payload.bomba_observaciones || "").trim(),
     survey_tipo: String(payload.survey_tipo || "").trim(),
     survey_fecha: String(payload.survey_fecha || "").trim(),
     survey_profundidad: String(payload.survey_profundidad || "").trim(),
-    survey_observaciones: String(payload.survey_observaciones || "").trim()
+    survey_observaciones: String(payload.survey_observaciones || "").trim(),
+    pdt_fecha_ultima_prueba: String(payload.pdt_fecha_ultima_prueba || "").trim(),
+    pdt_volumetria: String(payload.pdt_volumetria || "").trim(),
+    pdt_ays: String(payload.pdt_ays || "").trim(),
+    pdt_causa_diferido: String(payload.pdt_causa_diferido || "").trim()
   });
 }
 
@@ -399,19 +487,230 @@ export async function fetchLatestTomasNivel(pozoId, maxRows = 12) {
   });
 }
 
+export async function fetchLatestBombas(pozoId, maxRows = 100) {
+  if (!db) {
+    return [];
+  }
+
+  const snapshot = await db
+    .collection(MASTER_COLLECTION)
+    .doc(normalizePozoId(pozoId))
+    .collection("historial_bombas")
+    .orderBy("fecha_sort_ms", "desc")
+    .limit(maxRows)
+    .get();
+
+  return snapshot.docs.map((doc) => {
+    const data = doc.data() || {};
+    return {
+      ...data,
+      id: doc.id,
+      createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : firstNonEmpty(data.createdAt, data.fecha_instalacion, new Date().toISOString())
+    };
+  });
+}
+
+export async function fetchLatestPdt(pozoId, maxRows = 100) {
+  if (!db) {
+    return [];
+  }
+
+  const snapshot = await db
+    .collection(MASTER_COLLECTION)
+    .doc(normalizePozoId(pozoId))
+    .collection("historial_pdt")
+    .orderBy("fecha_sort_ms", "desc")
+    .limit(maxRows)
+    .get();
+
+  return snapshot.docs.map((doc) => {
+    const data = doc.data() || {};
+    return {
+      ...data,
+      id: doc.id,
+      createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : firstNonEmpty(data.createdAt, data.fecha_ultima_prueba, new Date().toISOString())
+    };
+  });
+}
+
 export async function fetchPozoHistory(pozoId, maxRows = 500) {
   const normalized = normalizePozoId(pozoId);
-  const [parametros, niveles] = await Promise.all([
+  const [parametros, niveles, bombas, pdt] = await Promise.all([
     fetchLatestParametros(normalized, maxRows),
-    fetchLatestTomasNivel(normalized, maxRows)
+    fetchLatestTomasNivel(normalized, maxRows),
+    fetchLatestBombas(normalized, maxRows),
+    fetchLatestPdt(normalized, maxRows)
   ]);
 
   return {
     pozoId: normalized,
     parametros,
     niveles,
+    bombas,
+    pdt,
     syncedAt: new Date().toISOString()
   };
+}
+
+export async function importExternalWellData({ bombaRows = [], pdtRows = [] } = {}) {
+  if (!db) {
+    throw new Error("Firebase no configurado");
+  }
+
+  const serverTs = window.firebase.firestore.FieldValue.serverTimestamp();
+  const writeOps = [];
+  const latestBombasByPozo = new Map();
+  const summaryPdtByPozo = new Map();
+
+  bombaRows.forEach((row) => {
+    const pozoId = normalizePozoId(row.pozoId);
+    if (!pozoId) {
+      return;
+    }
+
+    const pozoRef = db.collection(MASTER_COLLECTION).doc(pozoId);
+    const docId = buildHistoryDocId([
+      pozoId,
+      row.fecha_instalacion,
+      row.marca,
+      row.modelo,
+      row.tvu_dias,
+      row.observaciones
+    ]);
+    const payload = {
+      pozoId,
+      marca: String(row.marca || "").trim(),
+      modelo: String(row.modelo || "").trim(),
+      fecha_instalacion: String(row.fecha_instalacion || "").trim(),
+      fecha_sort_ms: toNumber(row.fecha_sort_ms),
+      tvu_dias: String(row.tvu_dias || "").trim(),
+      observaciones: String(row.observaciones || "").trim(),
+      sourceApp: "opti-intern-platform",
+      createdAt: serverTs
+    };
+
+    writeOps.push((batch) => batch.set(pozoRef.collection("historial_bombas").doc(docId), payload, { merge: true }));
+
+    const current = latestBombasByPozo.get(pozoId);
+    if (!current || toNumber(row.fecha_sort_ms) >= toNumber(current.fecha_sort_ms)) {
+      latestBombasByPozo.set(pozoId, payload);
+    }
+  });
+
+  pdtRows.forEach((row) => {
+    const pozoId = normalizePozoId(row.pozoId);
+    if (!pozoId) {
+      return;
+    }
+
+    const pozoRef = db.collection(MASTER_COLLECTION).doc(pozoId);
+    const docId = buildHistoryDocId([
+      pozoId,
+      row.fecha_ultima_prueba,
+      row.yacimiento,
+      row.volumetria,
+      row.ays,
+      row.causa_diferido
+    ]);
+    const payload = {
+      pozoId,
+      yacimiento: String(row.yacimiento || "").trim(),
+      fecha_ultima_prueba: String(row.fecha_ultima_prueba || "").trim(),
+      fecha_sort_ms: toNumber(row.fecha_sort_ms),
+      volumetria: String(row.volumetria || "").trim(),
+      ays: String(row.ays || "").trim(),
+      causa_diferido: String(row.causa_diferido || "").trim(),
+      sourceApp: "opti-intern-platform",
+      createdAt: serverTs
+    };
+
+    writeOps.push((batch) => batch.set(pozoRef.collection("historial_pdt").doc(docId), payload, { merge: true }));
+
+    const summary = {
+      id: pozoId,
+      yacimiento: payload.yacimiento,
+      updatedAt: serverTs,
+      fuente_ultima_actualizacion: "opti-intern-platform"
+    };
+
+    if (row.updateSummary) {
+      summary.pdt_fecha_ultima_prueba = payload.fecha_ultima_prueba;
+      summary.pdt_volumetria = payload.volumetria;
+      summary.pdt_ays = payload.ays;
+      summary.pdt_causa_diferido = payload.causa_diferido;
+    }
+
+    summaryPdtByPozo.set(pozoId, { ...summaryPdtByPozo.get(pozoId), ...summary });
+  });
+
+  latestBombasByPozo.forEach((row, pozoId) => {
+    const pozoRef = db.collection(MASTER_COLLECTION).doc(pozoId);
+    writeOps.push((batch) => batch.set(
+      pozoRef,
+      {
+        id: pozoId,
+        bomba_marca: row.marca,
+        bomba_modelo: row.modelo,
+        bomba_tvu: row.tvu_dias,
+        bomba_fecha_instalacion: row.fecha_instalacion,
+        bomba_observaciones: row.observaciones,
+        updatedAt: serverTs,
+        fuente_ultima_actualizacion: "opti-intern-platform"
+      },
+      { merge: true }
+    ));
+  });
+
+  summaryPdtByPozo.forEach((row, pozoId) => {
+    const pozoRef = db.collection(MASTER_COLLECTION).doc(pozoId);
+    writeOps.push((batch) => batch.set(pozoRef, row, { merge: true }));
+  });
+
+  await commitBatchWriters(writeOps, 400);
+
+  return {
+    bombas: bombaRows.length,
+    pdt: pdtRows.length,
+    pozosActualizados: latestBombasByPozo.size + summaryPdtByPozo.size
+  };
+}
+
+export async function deletePozoHistoryRecord(pozoId, kind, docId) {
+  if (!db) {
+    throw new Error("Firebase no configurado");
+  }
+
+  const normalized = normalizePozoId(pozoId);
+  const collection = historyCollectionByKind(kind);
+  await db.collection(MASTER_COLLECTION).doc(normalized).collection(collection).doc(String(docId || "").trim()).delete();
+}
+
+export async function upsertPozoHistoryRecord(pozoId, kind, docId, payload = {}) {
+  if (!db) {
+    throw new Error("Firebase no configurado");
+  }
+
+  const normalized = normalizePozoId(pozoId);
+  const collection = historyCollectionByKind(kind);
+  const serverTs = window.firebase.firestore.FieldValue.serverTimestamp();
+  const id = String(docId || "").trim();
+  if (!id) {
+    throw new Error("docId requerido para actualizar historial");
+  }
+
+  await db
+    .collection(MASTER_COLLECTION)
+    .doc(normalized)
+    .collection(collection)
+    .doc(id)
+    .set(
+      {
+        ...sanitizePatch(payload),
+        updatedAt: serverTs,
+        sourceApp: "opti-intern-platform"
+      },
+      { merge: true }
+    );
 }
 
 export async function uploadTomaNivelPdf(file, pozoId) {
@@ -540,6 +839,59 @@ function sanitizePatch(patch) {
     }
   });
   return output;
+}
+
+function mergeWellRows(base = {}, incoming = {}) {
+  const merged = { ...base };
+  Object.keys(incoming).forEach((key) => {
+    const nextValue = incoming[key];
+    const currentValue = merged[key];
+
+    const isNextEmpty = nextValue === undefined
+      || nextValue === null
+      || (typeof nextValue === "string" && nextValue.trim() === "");
+
+    if (isNextEmpty) {
+      merged[key] = currentValue;
+      return;
+    }
+
+    merged[key] = nextValue;
+  });
+
+  return merged;
+}
+
+function historyCollectionByKind(kind) {
+  if (kind === "parametros") {
+    return "parametros";
+  }
+  if (kind === "niveles") {
+    return "tomas_nivel";
+  }
+  if (kind === "bombas") {
+    return "historial_bombas";
+  }
+  return "historial_pdt";
+}
+
+async function commitBatchWriters(writers, chunkSize = 400) {
+  for (let index = 0; index < writers.length; index += chunkSize) {
+    const chunk = writers.slice(index, index + chunkSize);
+    const batch = db.batch();
+    chunk.forEach((writer) => writer(batch));
+    await batch.commit();
+  }
+}
+
+function buildHistoryDocId(parts) {
+  return String(parts.filter(Boolean).join("_"))
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9_-]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 120) || `hist-${Date.now()}`;
 }
 
 function firstNonEmpty(...values) {

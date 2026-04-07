@@ -28,6 +28,58 @@ body {
   min-height: 100%;
 }
 
+.auth-shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background:
+    radial-gradient(circle at top right, rgba(48, 65, 255, 0.16), transparent 30%),
+    linear-gradient(180deg, #f7f9ff, #eef3ff 55%, #ffffff);
+}
+
+.auth-layout {
+  width: min(1120px, 100%);
+  display: grid;
+  grid-template-columns: 1.15fr 0.85fr;
+  gap: 18px;
+}
+
+.auth-panel {
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid #dde5f4;
+  border-radius: 18px;
+  padding: 24px;
+  box-shadow: 0 18px 40px rgba(20, 37, 89, 0.12);
+}
+
+.auth-panel-brand {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 14px;
+}
+
+.auth-brand-row {
+  margin-bottom: 6px;
+}
+
+.auth-form {
+  grid-template-columns: 1fr;
+}
+
+.auth-status {
+  min-height: 20px;
+}
+
+.auth-status.is-error {
+  color: #b42318;
+}
+
+.auth-actions {
+  justify-content: space-between;
+}
+
 h1,
 h2,
 h3,
@@ -190,6 +242,13 @@ p {
   font-size: 0.75rem;
   border: 1px solid #d7deec;
   background: #ffffff;
+}
+
+#authRoleBadge,
+#authUserBadge {
+  background: #eef2ff;
+  border-color: #cad6ff;
+  color: #162046;
 }
 
 .badge.offline {
@@ -568,12 +627,43 @@ thead th {
 .history-dialog-form {
   padding: 16px;
   width: min(1100px, 96vw);
+  max-height: min(84vh, 900px);
+  display: flex;
+  flex-direction: column;
 }
 
 #parametrosHistoryDialog,
 #nivelesHistoryDialog {
   width: min(1140px, 96vw);
   max-width: 1140px;
+}
+
+#bombasHistoryDialog,
+#pdtHistoryDialog {
+  width: min(1140px, 96vw);
+  max-width: 1140px;
+}
+
+.history-dialog-form .table-wrap {
+  flex: 1;
+  overflow: auto;
+  border: 1px solid #dce3f0;
+  border-radius: 10px;
+}
+
+#cardEditDialog {
+  width: min(860px, 95vw);
+  max-width: 860px;
+}
+
+#cardEditDialog .form-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+#cardEditDialog #cardEditFields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
 }
 
 .hint {
@@ -750,6 +840,23 @@ thead th {
 }
 
 @media (max-width: 768px) {
+  .auth-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .auth-shell {
+    padding: 14px;
+  }
+
+  .auth-panel {
+    padding: 18px;
+  }
+
+  .auth-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
   .app-shell {
     grid-template-columns: 1fr;
   }
@@ -968,6 +1075,93 @@ thead th {
   .mobile-detail-table th {
     font-size: 0.82rem;
     padding: 6px;
+  }
+
+  #bombasTable {
+    border: 0;
+  }
+
+  #bombasTable thead {
+    display: none;
+  }
+
+  #bombasTable tbody tr {
+    display: block;
+    border: 1px solid #dce3f0;
+    border-radius: 10px;
+    padding: 8px;
+    margin-bottom: 10px;
+    background: #fff;
+  }
+
+  #bombasTable tbody td {
+    display: grid;
+    grid-template-columns: 120px 1fr;
+    gap: 8px;
+    border-bottom: 1px dashed #e6ebf5;
+    padding: 7px 6px;
+    white-space: normal;
+  }
+
+  #bombasTable tbody td:last-child {
+    border-bottom: 0;
+  }
+
+  #bombasTable tbody td::before {
+    content: attr(data-label);
+    font-weight: 700;
+    color: var(--muted);
+  }
+
+  #bombasTable_wrapper .top,
+  #bombasTable_wrapper .bottom {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  #bombasTable_wrapper .top .dt-buttons {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  #bombasTable_wrapper .top .dt-button {
+    min-height: 36px;
+    padding: 7px 6px;
+    font-size: 0.76rem;
+    line-height: 1.2;
+    margin: 0 !important;
+  }
+
+  .history-dialog-form {
+    width: 98vw;
+    max-height: 88vh;
+    padding: 12px;
+  }
+
+  .history-dialog-form .table-head {
+    position: sticky;
+    top: 0;
+    background: #fff;
+    z-index: 3;
+    padding-bottom: 8px;
+  }
+
+  #cardEditDialog {
+    width: 98vw;
+    max-height: 88vh;
+    overflow: auto;
+  }
+
+  #cardEditDialog .form-grid,
+  #cardEditDialog #cardEditFields {
+    grid-template-columns: 1fr;
+  }
+
+  .delete-history-row {
+    width: 100%;
+    margin-top: 0;
   }
 }
 
